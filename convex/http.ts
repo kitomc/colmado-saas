@@ -3,6 +3,8 @@ import { internalAction } from "./_generated/server";
 import { query } from "./_generated/server";
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { httpRouter } from "convex/server";
+import { handleTelegram } from "./telegram";
 
 // @ts-check
 
@@ -485,3 +487,27 @@ export const crearOrdenDesdeChat = mutation({
     return ordenId;
   },
 });
+
+// ============ HTTP ROUTER ============
+
+const http = httpRouter();
+
+http.route({
+  path: "/whatsapp",
+  method: "POST",
+  handler: handleWhatsApp,
+});
+
+http.route({
+  path: "/whatsapp",
+  method: "GET",
+  handler: handleWhatsApp,
+});
+
+http.route({
+  path: "/telegram",
+  method: "POST",
+  handler: handleTelegram,
+});
+
+export default http;
