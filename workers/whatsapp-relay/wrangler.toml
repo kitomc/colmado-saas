@@ -1,0 +1,13 @@
+name = "colmadoai-whatsapp-relay"
+main = "index.js"
+compatibility_date = "2024-01-01"
+
+# Variables de entorno (se configurarán en Cloudflare Dashboard)
+# [vars]
+# CONVEX_HTTP_URL = "https://tu-proyecto.convex.cloud/whatsapp"
+# VERIFY_TOKEN = "colmadoai_webhook_verify"
+
+# Routes - configurar en Cloudflare Dashboard
+# routes = [
+#   { pattern = "tu-dominio.com/whatsapp", zone_name = "tu-dominio.com" }
+# ]
