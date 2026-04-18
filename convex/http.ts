@@ -281,6 +281,13 @@ export const handleWhatsApp = httpAction(async (ctx, request) => {
 
     const historial = existingChats[0]?.historial || [];
 
+    // #9 Verificar si el bot está activo para este chat
+    const chatActual = existingChats[0];
+    if (chatActual && !chatActual.bot_activo) {
+      console.log("[WhatsApp] Bot pausado para este chat, ignorando mensaje");
+      return new Response("OK", { status: 200 });
+    }
+
     // Problema #1: Incluir el mensaje nuevo del cliente en el historial
     const mensajesConNuevo = [
       ...historial,
