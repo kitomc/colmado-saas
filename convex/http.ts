@@ -294,7 +294,8 @@ export const handleWhatsApp = httpAction(async (ctx, request) => {
       )
       .collect();
 
-    const historial = existingChats[0]?.historial || [];
+    const historialCompleto = existingChats[0]?.historial || [];
+    const historial = historialCompleto.slice(-20); // Limitar a últimos 20 mensajes
 
     // #9 Verificar si el bot está activo para este chat
     const chatActual = existingChats[0];
