@@ -48,26 +48,26 @@ function parseWhatsAppPayload(payload: any): ParsedMessage | null {
 }
 
 /**
- * Nano 2.4: Llamada a DeepSeek V3.2
+ * Nano 2.4: Llamada a Groq API
  */
-async function callDeepSeek(
+async function callGroq(
   messages: { role: string; content: string }[],
   systemPrompt: string
 ): Promise<string> {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY;
   
   if (!apiKey) {
-    throw new Error("DEEPSEEK_API_KEY no configurada");
+    throw new Error("GROQ_API_KEY no configurada");
   }
 
-  const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "deepseek-chat",
+      model: "llama-3.3-70b-versatile",
       messages: [
         { role: "system", content: systemPrompt },
         ...messages,
@@ -79,7 +79,7 @@ async function callDeepSeek(
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`DeepSeek API error: ${response.status} - ${error}`);
+    throw new Error(`Groq API error: ${response.status} - ${error}`);
   }
 
   const data = await response.json();
@@ -288,7 +288,7 @@ export const handleWhatsApp = httpAction(async (ctx, request) => {
     ];
 
     // Nano 2.4: Llamar a DeepSeek
-    const llmResponse = await callDeepSeek(mensajesConNuevo, systemPrompt);
+    const llmResponse = await callGroq(mensajesConNuevo, systemPrompt);
 
     console.log("[DeepSeek] Respuesta:", llmResponse);
 
