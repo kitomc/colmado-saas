@@ -6,6 +6,7 @@ export default defineSchema({
   colmados: defineTable({
     nombre: v.string(),
     telefono_whatsapp: v.string(),
+    whatsapp_phone_id: v.string(), // Bug #B: Phone ID por colmado
     telegram_chat_id: v.optional(v.string()),
     whatsapp_token: v.string(),
     activo: v.boolean(),

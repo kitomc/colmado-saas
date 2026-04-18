@@ -327,11 +327,37 @@ export const handleWhatsApp = httpAction(async (ctx, request) => {
       const productosValidos = productosOrden.filter((p: any) => p.productoId);
 
       if (productosValidos.length > 0) {
-        // Llamar a la mutation para crear la orden
-        // Nota: En httpAction, las mutations se llaman directamente
+        // Bug #A: Crear o buscar el cliente primero
+        const clientesExistentes = await ctx.db
+          .query("clientes")
+          .withIndex("by_colmado_telefono", (q: any) =>
+            q.eq("colmado_id", COLMADO_ID).eq("telefono", parsed.telefono)
+          )
+          .collect();
+
+        let clienteId;
+        if (clientesExistentes.length > 0) {
+          const cliente = clientesExistentes[0];
+          await ctx.db.patch(cliente._id, {
+            total_ordenes: cliente.total_ordenes + 1,
+            ultima_orden: Date.now(),
+          });
+          clienteId = cliente._id;
+        } else {
+          clienteId = await ctx.db.insert("clientes", {
+            colmado_id: COLMADO_ID,
+            telefono: parsed.telefono,
+            nombre: orderData.orden.nombre || "Cliente WhatsApp",
+            total_ordenes: 1,
+            ultima_orden: Date.now(),
+            created_at: Date.now(),
+          });
+        }
+
+        // Insertar la orden con cliente_id válido
         const ordenId = await ctx.db.insert("ordenes", {
           colmado_id: COLMADO_ID,
-          cliente_id: null, // Se crea después
+          cliente_id: clienteId,
           productos: productosValidos.map((p: any) => ({
             producto_id: p.productoId,
             nombre: p.nombre,
@@ -361,8 +387,8 @@ export const handleWhatsApp = httpAction(async (ctx, request) => {
       llmResponse
     );
 
-    // Nano 2.6: Responder por WhatsApp
-    const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID || "";
+    // Bug #B: Usar el whatsapp_phone_id del colmado encontrado
+    const WHATSAPP_PHONE_ID = colmado.whatsapp_phone_id || "";
 
     if (WHATSAPP_TOKEN && WHATSAPP_PHONE_ID) {
       await sendWhatsAppMessage(
