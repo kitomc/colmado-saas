@@ -244,6 +244,19 @@ INSTRUCCIONES:
  */
 export const handleWhatsApp = httpAction(async (ctx, request) => {
   try {
+    // Tarea 2: Manejar GET de verificación de Meta
+    if (request.method === "GET") {
+      const url = new URL(request.url);
+      const mode = url.searchParams.get("hub.mode");
+      const token = url.searchParams.get("hub.verify_token");
+      const challenge = url.searchParams.get("hub.challenge");
+      
+      if (mode === "subscribe" && token === process.env.WHATSAPP_VERIFY_TOKEN) {
+        return new Response(challenge ?? "", { status: 200 });
+      }
+      return new Response("Forbidden", { status: 403 });
+    }
+
     // Nano 2.3: Parsear payload
     const payload = await request.json();
     const parsed = parseWhatsAppPayload(payload);
