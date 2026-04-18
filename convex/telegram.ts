@@ -137,6 +137,14 @@ function detectCommand(text: string): { comando: string; args: string } | null {
 // ============ HANDLERS DE COMANDOS ============
 
 /**
+ * Busca el colmado por telegram_chat_id
+ */
+async function findColmadoByTelegramChatId(ctx: any, chatId: string) {
+  const colmados = await ctx.db.query("colmados").collect();
+  return colmados.find((c: any) => c.telegram_chat_id === chatId);
+}
+
+/**
  * Nano 3.3: Handler comando /precio
  */
 async function handlePrecio(
@@ -144,14 +152,13 @@ async function handlePrecio(
   chatId: string,
   token: string
 ): Promise<string> {
-  // Por ahora, obtener el primer colmado (en producción, mapear chatId -> colmado)
-  const colmados = await ctx.db.query("colmados").collect();
-  if (colmados.length === 0) {
-    return "No hay colmados configurados.";
+  // Problema #3: Buscar el colmado por telegram_chat_id
+  const colmado = await findColmadoByTelegramChatId(ctx, chatId);
+
+  if (!colmado) {
+    return "No hay colmados configurados para este chat.";
   }
 
-  const colmado = colmados[0];
-  
   // Obtener productos disponibles
   const productos = await ctx.db
     .query("productos")
@@ -181,12 +188,12 @@ async function handleToggleProducto(
   nombreProducto: string,
   habilitar: boolean
 ): Promise<string> {
-  // Obtener colmado
-  const colmados = await ctx.db.query("colmados").collect();
-  if (colmados.length === 0) {
-    return "No hay colmados configurados.";
+  // Problema #3: Buscar el colmado por telegram_chat_id
+  const colmado = await findColmadoByTelegramChatId(ctx, chatId);
+
+  if (!colmado) {
+    return "No hay colmados configurados para este chat.";
   }
-  const colmado = colmados[0];
 
   // Buscar producto por nombre (case insensitive)
   const productos = await ctx.db
@@ -221,24 +228,24 @@ async function handleChatControl(
   accion: "tomar" | "liberar",
   telefonoCliente?: string
 ): Promise<string> {
-  const colmados = await ctx.db.query("colmados").collect();
-  if (colmados.length === 0) {
-    return "No hay colmados configurados.";
+  // Problema #3: Buscar el colmado por telegram_chat_id
+  const colmado = await findColmadoByTelegramChatId(ctx, chatId);
+
+  if (!colmado) {
+    return "No hay colmados configurados para este chat.";
   }
-  const colmado = colmados[0];
 
   if (accion === "liberar") {
-    // Reanudar bot
-    await ctx.db
+    // Reanudar bot - obtener todos los chats del colmado
+    const todosLosChats = await ctx.db
       .query("chats")
       .withIndex("by_colmado_id", (q: any) => q.eq("colmado_id", colmado._id))
-      .collect()
-      .then(async (chats: any[]) => {
-        // Actualizar todos los chats para reanudar el bot
-        for (const chat of chats) {
-          await ctx.db.patch(chat._id, { bot_activo: true });
-        }
-      });
+      .collect();
+
+    // Actualizar todos los chats para reanudar el bot
+    for (const chat of todosLosChats) {
+      await ctx.db.patch(chat._id, { bot_activo: true });
+    }
 
     return "✅ Bot reanudado para todos los chats.";
   }

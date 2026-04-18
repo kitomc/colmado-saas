@@ -11,7 +11,7 @@
 Lee completamente estos archivos en este orden antes de responder cualquier cosa:
 1. AGENTS.md
 2. POC_ColmadoAI_SaaS.md
-3. checklists/fase[N].md (la fase actual)
+3. checklists/fase[N].md (la fase actual) - en carpeta checklists/
 
 Contexto de la sesión actual:
 - Fase actual: [NÚMERO Y NOMBRE DE LA FASE]

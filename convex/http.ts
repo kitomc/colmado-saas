@@ -253,9 +253,20 @@ export const handleWhatsApp = httpAction(async (ctx, request) => {
 
     console.log("[WhatsApp] Mensaje parseado:", parsed);
 
-    // Por ahora, usar un colmado hardcodeado (en producción, detectar por número)
-    // TODO: Mapear teléfono -> colmado_id
-    const COLMADO_ID = "01JZTV2P8N5XKQ4P7V3R2Y9PMJ"; // Ejemplo
+    // Problema #2: Buscar el colmado por el número de WhatsApp del payload
+    const wabaNumber = payload?.entry?.[0]?.changes?.[0]?.value?.metadata?.display_phone_number;
+    const todosColmados = await ctx.db.query("colmados").collect();
+    const colmado = todosColmados.find((c: any) => c.telefono_whatsapp === wabaNumber);
+
+    if (!colmado) {
+      console.log("[WhatsApp] No se encontró colmado para", wabaNumber);
+      return new Response("OK", { status: 200 });
+    }
+
+    const COLMADO_ID = colmado._id;
+    const WHATSAPP_TOKEN = colmado.whatsapp_token;
+
+    console.log("[WhatsApp] Colmado encontrado:", colmado.nombre);
 
     // Nano 2.8: Obtener system prompt con catálogo
     const systemPrompt = await buildSystemPrompt(ctx, COLMADO_ID);
@@ -270,18 +281,68 @@ export const handleWhatsApp = httpAction(async (ctx, request) => {
 
     const historial = existingChats[0]?.historial || [];
 
+    // Problema #1: Incluir el mensaje nuevo del cliente en el historial
+    const mensajesConNuevo = [
+      ...historial,
+      { role: "user", content: parsed.mensaje }
+    ];
+
     // Nano 2.4: Llamar a DeepSeek
-    const llmResponse = await callDeepSeek(historial, systemPrompt);
+    const llmResponse = await callDeepSeek(mensajesConNuevo, systemPrompt);
 
     console.log("[DeepSeek] Respuesta:", llmResponse);
 
-    // Nano 2.7: Detectar si es JSON de orden
+    // Problema #4: Detectar Y guardar la orden si se detecta
     const orderData = detectOrderJSON(llmResponse);
-    
-    if (orderData) {
-      // Procesar la orden
+
+    if (orderData && orderData.orden) {
       console.log("[Orden] Detectada:", orderData);
-      // TODO: Crear la orden en la tabla
+
+      // Buscar o crear productos en el catálogo
+      const productosColmado = await ctx.db
+        .query("productos")
+        .withIndex("by_colmado_id", (q: any) => q.eq("colmado_id", COLMADO_ID))
+        .collect();
+
+      const productosOrden = orderData.orden.productos.map((p: any) => {
+        const productoDb = productosColmado.find((prod: any) =>
+          prod.nombre.toLowerCase().includes(p.nombre.toLowerCase())
+        );
+        return {
+          productoId: productoDb?._id || null,
+          nombre: p.nombre,
+          cantidad: p.cantidad,
+          precioUnitario: p.precio,
+        };
+      });
+
+      // Filtrar productos que no se encontraron
+      const productosValidos = productosOrden.filter((p: any) => p.productoId);
+
+      if (productosValidos.length > 0) {
+        // Llamar a la mutation para crear la orden
+        // Nota: En httpAction, las mutations se llaman directamente
+        const ordenId = await ctx.db.insert("ordenes", {
+          colmado_id: COLMADO_ID,
+          cliente_id: null, // Se crea después
+          productos: productosValidos.map((p: any) => ({
+            producto_id: p.productoId,
+            nombre: p.nombre,
+            cantidad: p.cantidad,
+            precio_unitario: p.precioUnitario,
+            subtotal: p.cantidad * p.precioUnitario,
+          })),
+          total: productosValidos.reduce((sum: number, p: any) =>
+            sum + (p.cantidad * p.precioUnitario), 0
+          ),
+          estado: "lista_para_imprimir",
+          direccion: orderData.orden.direccion,
+          metodo_pago: orderData.orden.metodo_pago,
+          created_at: Date.now(),
+        });
+
+        console.log("[Orden] Creada con ID:", ordenId);
+      }
     }
 
     // Nano 2.5: Guardar en chats
@@ -294,8 +355,6 @@ export const handleWhatsApp = httpAction(async (ctx, request) => {
     );
 
     // Nano 2.6: Responder por WhatsApp
-    // Por ahora, usar tokens hardcodeados (en producción, obtener del colmado)
-    const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN || "";
     const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID || "";
 
     if (WHATSAPP_TOKEN && WHATSAPP_PHONE_ID) {
