@@ -27,6 +27,7 @@ export const crearColmado = mutation({
   args: {
     nombre: v.string(),
     telefonoWhatsApp: v.string(),
+    whatsappPhoneId: v.string(),  // Bug #B fix
     telegramChatId: v.optional(v.string()),
     whatsappToken: v.string(),
   },
@@ -34,6 +35,7 @@ export const crearColmado = mutation({
     const colmadoId = await ctx.db.insert("colmados", {
       nombre: args.nombre,
       telefono_whatsapp: args.telefonoWhatsApp,
+      whatsapp_phone_id: args.whatsappPhoneId,  // Bug #B fix
       telegram_chat_id: args.telegramChatId,
       whatsapp_token: args.whatsappToken,
       activo: true,
@@ -50,6 +52,7 @@ export const actualizarColmado = mutation({
     colmadoId: v.id("colmados"),
     nombre: v.optional(v.string()),
     telefonoWhatsApp: v.optional(v.string()),
+    whatsappPhoneId: v.optional(v.string()),  // Bug #B fix
     telegramChatId: v.optional(v.string()),
     whatsappToken: v.optional(v.string()),
     activo: v.optional(v.boolean()),
@@ -63,6 +66,7 @@ export const actualizarColmado = mutation({
     const updates: Record<string, unknown> = {};
     if (args.nombre) updates.nombre = args.nombre;
     if (args.telefonoWhatsApp) updates.telefono_whatsapp = args.telefonoWhatsApp;
+    if (args.whatsappPhoneId) updates.whatsapp_phone_id = args.whatsappPhoneId;
     if (args.telegramChatId !== undefined) updates.telegram_chat_id = args.telegramChatId;
     if (args.whatsappToken) updates.whatsapp_token = args.whatsappToken;
     if (args.activo !== undefined) updates.activo = args.activo;
