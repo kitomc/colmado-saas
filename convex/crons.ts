@@ -1,5 +1,5 @@
 import { cronJobs } from "convex/server";
-import { internal } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 // @ts-check
 
