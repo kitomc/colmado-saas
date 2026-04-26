@@ -1,6 +1,47 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
+// ============ VALIDATION HELPERS ============
+
+interface ValidationResult {
+  valid: boolean;
+  error?: string;
+}
+
+/**
+ * Valida formato de teléfono RD (República Dominicana)
+ * Acepta: 8095551234, 8295551234, 8495551234, +18095551234
+ */
+function validateTelefonoRD(telefono: string | undefined): ValidationResult {
+  if (!telefono || telefono.trim() === "") {
+    return { valid: false, error: "El teléfono no puede estar vacío" };
+  }
+
+  const clean = telefono.replace(/\s/g, "");
+
+  // Check: solo dígitos y +
+  if (!/^\+?\d+$/.test(clean)) {
+    return { valid: false, error: "Teléfono inválido: solo se permiten números" };
+  }
+
+  // Normalizar: remover +1 si existe
+  const normalized = clean.startsWith("+1") ? clean.slice(2) : 
+                      clean.startsWith("1") && clean.length === 11 ? clean.slice(1) : clean;
+
+  // Check: debe tener 10 dígitos
+  if (normalized.length !== 10) {
+    return { valid: false, error: "El teléfono debe tener 10 dígitos" };
+  }
+
+  // Check: prefijo válido RD (809, 829, 849)
+  const prefix = normalized.slice(0, 3);
+  if (!["809", "829", "849"].includes(prefix)) {
+    return { valid: false, error: "Prefijo RD inválido. Use 809, 829 o 849" };
+  }
+
+  return { valid: true };
+}
+
 // ============ QUERIES ============
 
 // Query: getClientes
@@ -54,6 +95,12 @@ export const crearOActualizarCliente = mutation({
     nombre: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Validar teléfono RD antes de continuar
+    const validation = validateTelefonoRD(args.telefono);
+    if (!validation.valid) {
+      throw new Error(validation.error);
+    }
+
     // Buscar cliente existente
     const clientesExistentes = await ctx.db
       .query("clientes")
@@ -90,6 +137,7 @@ export const crearOActualizarCliente = mutation({
 export const actualizarCliente = mutation({
   args: {
     clienteId: v.id("clientes"),
+    telefono: v.optional(v.string()),
     nombre: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -98,8 +146,17 @@ export const actualizarCliente = mutation({
       throw new Error("Cliente no encontrado");
     }
 
+    // Validar teléfono si se proporciona
+    if (args.telefono) {
+      const validation = validateTelefonoRD(args.telefono);
+      if (!validation.valid) {
+        throw new Error(validation.error);
+      }
+    }
+
     const updates: Record<string, unknown> = {};
     if (args.nombre) updates.nombre = args.nombre;
+    if (args.telefono) updates.telefono = args.telefono;
 
     await ctx.db.patch(args.clienteId, updates);
 

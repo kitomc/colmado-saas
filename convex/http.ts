@@ -310,10 +310,10 @@ export const handleWhatsApp = httpAction(async (ctx, request) => {
       { role: "user", content: parsed.mensaje }
     ];
 
-    // Nano 2.4: Llamar a DeepSeek
+    // Nano 2.4: Llamar a Groq
     const llmResponse = await callGroq(mensajesConNuevo, systemPrompt);
 
-    console.log("[DeepSeek] Respuesta:", llmResponse);
+    console.log("[Groq] Respuesta:", llmResponse);
 
     // Problema #4: Detectar Y guardar la orden si se detecta
     const orderData = detectOrderJSON(llmResponse);
