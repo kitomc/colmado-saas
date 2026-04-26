@@ -163,3 +163,17 @@ export const actualizarCliente = mutation({
     return args.clienteId;
   },
 });
+
+// ============ QUERIES PARA ADMIN WEB ============
+
+// Query: listByColmado — últimos 100 clientes de un colmado
+export const listByColmado = query({
+  args: { colmado_id: v.id("colmados") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("clientes")
+      .withIndex("by_colmado_id", (q) => q.eq("colmado_id", args.colmado_id))
+      .order("desc")
+      .take(100);
+  },
+});

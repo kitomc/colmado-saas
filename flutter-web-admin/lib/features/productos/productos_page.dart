@@ -3,56 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme.dart';
 import '../../shared/widgets/empty_state.dart';
+import '../../shared/providers/convex_providers.dart';
 
-/// Provider for products list
-final productosProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
-  // TODO: Connect to Convex query
-  return [
-    {
-      'id': 'prod_001',
-      'nombre': 'Cerveza Presidente 12oz',
-      'categoria': 'Bebidas',
-      'precio': 80.00,
-      'disponible': true,
-      'imagen': null,
-    },
-    {
-      'id': 'prod_002',
-      'nombre': 'Bavaria 12oz',
-      'categoria': 'Bebidas',
-      'precio': 75.00,
-      'disponible': true,
-      'imagen': null,
-    },
-    {
-      'id': 'prod_003',
-      'nombre': 'Quilmes 12oz',
-      'categoria': 'Bebidas',
-      'precio': 85.00,
-      'disponible': false,
-      'imagen': null,
-    },
-    {
-      'id': 'prod_004',
-      'nombre': 'Papas Hit 100g',
-      'categoria': 'Snacks',
-      'precio': 35.00,
-      'disponible': true,
-      'imagen': null,
-    },
-    {
-      'id': 'prod_005',
-      'nombre': 'Galletas Gamesa',
-      'categoria': 'Snacks',
-      'precio': 25.00,
-      'disponible': true,
-      'imagen': null,
-    },
-  ];
-});
-
-/// Provider for categorías
+/// Provider for categorías (mock — Convex query pending)
 final categoriasProvider = FutureProvider<List<String>>((ref) async {
+  // TODO: Obtener categorías desde Convex
   return ['Bebidas', 'Snacks', 'Cigarrillos', 'Dulces', 'Varios'];
 });
 

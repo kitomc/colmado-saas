@@ -162,3 +162,23 @@ export const productosPorCategoria = query({
       .sort((a, b) => a.nombre.localeCompare(b.nombre));
   },
 });
+
+// ─── Query: listByColmado ──────────────────────────────────────────────────────
+
+/**
+ * Query: listByColmado
+ *
+ * Retorna todos los productos de un colmado, ordenados por nombre.
+ *
+ * @param colmado_id - ID del colmado
+ * @returns Lista completa de productos
+ */
+export const listByColmado = query({
+  args: { colmado_id: v.id("colmados") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("productos")
+      .withIndex("by_colmado_id", (q) => q.eq("colmado_id", args.colmado_id))
+      .collect();
+  },
+});

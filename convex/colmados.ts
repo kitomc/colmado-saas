@@ -116,3 +116,40 @@ export const toggleColmadoActivo = mutation({
     return !colmado.activo;
   },
 });
+
+// ============ EVOLUTION API MUTATIONS ============
+
+// Mutation: actualizarEvolution — guarda el instance_name de Evolution API
+export const actualizarEvolution = mutation({
+  args: { colmadoId: v.id("colmados"), instanceName: v.string() },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.colmadoId, {
+      evolution_instance_name: args.instanceName,
+    });
+  },
+});
+
+// Mutation: actualizarEstadoEvolution — actualiza estado de conexión Evolution
+export const actualizarEstadoEvolution = mutation({
+  args: { instanceName: v.string(), connected: v.boolean() },
+  handler: async (ctx, args) => {
+    const colmado = await ctx.db
+      .query("colmados")
+      .filter((q) => q.eq(q.field("evolution_instance_name"), args.instanceName))
+      .first();
+    if (colmado) {
+      await ctx.db.patch(colmado._id, {
+        evolution_connected: args.connected,
+        evolution_connected_at: args.connected ? Date.now() : undefined,
+      });
+    }
+  },
+});
+
+// Mutation: marcarOnboardingCompleto — marca el onboarding como finalizado
+export const marcarOnboardingCompleto = mutation({
+  args: { colmadoId: v.id("colmados") },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.colmadoId, { onboarding_completo: true });
+  },
+});

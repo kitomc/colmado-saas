@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
 import '../../shared/widgets/boton_primario.dart';
@@ -193,7 +194,18 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
                           isLoading: isLoading,
                           onPressed: isLoading ? null : _handleLogin,
                         ),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text("¿No tenés cuenta? ", style: TextStyle(color: ColmariaColors.textMuted)),
+                            TextButton(
+                              onPressed: () => context.go('/register'),
+                              child: const Text("Registrate gratis", style: TextStyle(color: ColmariaColors.primary)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
                         Center(
                           child: Text('COLMARIA © 2026', style: TextStyle(color: ColmariaColors.textMuted, fontSize: 12)),
                         ),

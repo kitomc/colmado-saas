@@ -7,46 +7,7 @@ import '../../app/theme.dart';
 import '../../shared/widgets/kpi_card.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/estado_chip.dart';
-
-/// Provider for dashboard metrics
-final dashboardMetricsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
-  // TODO: Connect to Convex queries
-  // This will fetch from Convex
-  return {
-    'pedidos_hoy': 12,
-    'ventas_hoy': 8590.50,
-    'clientes_activos': 45,
-    'mensajes_hoy': 8,
-  };
-});
-
-/// Provider for recent orders
-final recentOrdersProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
-  // TODO: Connect to Convex query
-  return [
-    {
-      'id': 'ord_001',
-      'cliente_nombre': 'Juan Pérez',
-      'total': 1450.00,
-      'estado': 'lista_para_imprimir',
-      'created_at': DateTime.now().subtract(Duration(minutes: 5)),
-    },
-    {
-      'id': 'ord_002',
-      'cliente_nombre': 'María García',
-      'total': 2340.00,
-      'estado': 'confirmada',
-      'created_at': DateTime.now().subtract(Duration(minutes: 15)),
-    },
-    {
-      'id': 'ord_003',
-      'cliente_nombre': 'Carlos López',
-      'total': 890.00,
-      'estado': 'impresa',
-      'created_at': DateTime.now().subtract(Duration(minutes: 30)),
-    },
-  ];
-});
+import '../../shared/providers/convex_providers.dart';
 
 /// Provider for last 7 days sales
 final last7DaysSalesProvider = FutureProvider<List<FlSpot>>((ref) async {
@@ -67,8 +28,13 @@ class DashboardPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final metricsAsync = ref.watch(dashboardMetricsProvider);
-    final ordersAsync = ref.watch(recentOrdersProvider);
+    final today = DateTime.now();
+    final todayRange = DateRange(
+      start: DateTime(today.year, today.month, today.day),
+      end: today,
+    );
+    final metricsAsync = ref.watch(metricasProvider(todayRange));
+    final ordersAsync = ref.watch(pedidosProvider('todos'));
 
     return Scaffold(
       backgroundColor: ColmariaColors.background,
