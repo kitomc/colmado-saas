@@ -10,5 +10,8 @@
     "@auth/core": "^0.37.0",
     "@convex-dev/auth": "^0.0.91",
     "convex": "^1.17.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1"
   }
 }

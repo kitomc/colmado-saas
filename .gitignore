@@ -17,3 +17,8 @@ node_modules/
 
 # Build outputs
 *.log
+
+# Playwright test artifacts
+test-results/
+playwright-report/
+playwright/.cache/
