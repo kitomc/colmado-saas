@@ -31,8 +31,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/splash';
       }
       
-      // Si no está autenticado y no va a login, redirigir a login
-      if (!isAuthenticated && !goingToLogin && !goingToSplash) {
+      // Loading terminó + no autenticado → login
+      if (!isLoading && !isAuthenticated && !goingToLogin) {
         return '/login';
       }
       
