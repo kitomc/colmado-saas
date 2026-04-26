@@ -1,0 +1,19 @@
+
+# Variables locales de desarrollo — NO COMMITEAR
+.env.local
+.env.*.local
+
+# Convex generated files
+convex/_generated/
+convex/tsconfig.json
+
+# Dependencies
+node_modules/
+
+# Agent artifacts (no commit)
+.agents/
+.atl/
+.claude/
+
+# Build outputs
+*.log
