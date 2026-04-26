@@ -577,7 +577,12 @@ export const crearOrdenDesdeChat = mutation({
 
 // ============ HTTP ROUTER ============
 
+import { auth } from "./auth";
+
 const http = httpRouter();
+
+// Auth routes (login, signup, token refresh, logout)
+auth.addHttpRoutes(http);
 
 // WhatsApp webhook (mensajes entrantes de todos los colmados)
 http.route({
