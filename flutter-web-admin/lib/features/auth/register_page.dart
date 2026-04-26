@@ -1,15 +1,10 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:http/http.dart' as http;
-import 'package:convex_flutter/convex_flutter.dart';
 
 import '../../app/theme.dart';
 import '../../shared/widgets/boton_primario.dart';
 import '../../shared/providers/auth_provider.dart';
-import '../../shared/providers/convex_providers.dart';
 
 // --------------------------------------------------------
 // Pantalla pública: RegisterPage
@@ -46,9 +41,6 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
   final _colmadoNameController = TextEditingController();
   final _phoneController = TextEditingController();
 
-  bool _isLoading = false;
-  String? _errorMessage;
-
   @override
   void dispose() {
     _nameController.dispose();
@@ -60,7 +52,8 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
     super.dispose();
   }
 
-  // ───── Validación de contraseña (min 8 chars, al menos 1 número) ─────
+  // ───── Validaciones ──────────────────────────────────────────
+
   String? _validatePassword(String? value) {
     if (value == null || value.isEmpty) return 'La contraseña es requerida';
     if (value.length < 8) return 'Debe tener al menos 8 caracteres';
@@ -68,7 +61,6 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
     return null;
   }
 
-  // ───── Validación de teléfono RD (809/829/849 + 7 dígitos) ─────
   String? _validatePhoneRD(String? value) {
     if (value == null || value.isEmpty) return 'El teléfono es requerido';
     final digits = value.replaceAll(RegExp(r'\D'), '');
@@ -77,71 +69,43 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
     return null;
   }
 
-  // ───── Ir al paso 2 ─────
+  // ───── Ir al paso 2 ───────────────────────────────────────
+
   void _goToStep2() {
     if (!_formKeyStep1.currentState!.validate()) return;
     setState(() {
       _currentStep = 2;
-      _errorMessage = null;
     });
   }
 
-  // ───── Crear cuenta ─────
+  // ───── Crear cuenta ────────────────────────────────────────
+
   Future<void> _handleRegister() async {
     if (!_formKeyStep2.currentState!.validate()) return;
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    // Llamar signUp del authProvider (HTTP puro — sin convex_flutter WebSocket)
+    await ref.read(authProvider.notifier).signUp(
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+      nombre: _nameController.text.trim(),
+      nombreColmado: _colmadoNameController.text.trim(),
+      telefono: _phoneController.text.trim(),
+    );
 
-    try {
-      // 1. SignUp via Convex action
-      final tokens = await ref.read(authServiceProvider).signUp(
-        _emailController.text.trim(),
-        _passwordController.text,
-        _nameController.text.trim(),
-      );
-
-      // 2. Llamar mutation usuarios:registrar
-      final client = ref.read(convexClientProvider);
-      await client.mutation(
-        name: 'usuarios:registrar',
-        args: {
-          'nombre': _nameController.text.trim(),
-          'email': _emailController.text.trim(),
-          'nombre_colmado': _colmadoNameController.text.trim(),
-          'telefono': _phoneController.text.trim(),
-        },
-      );
-
-      // 5. Inicializar estado de auth
-      await ref.read(authProvider.notifier).initialize();
-
-      // 6. Navegar a onboarding con datos del registro
-      if (mounted) {
-        context.go('/onboarding', extra: {
-          'colmadoName': _colmadoNameController.text.trim(),
-          'phone': _phoneController.text.trim(),
-          'name': _nameController.text.trim(),
-        });
-      }
-    } on http.ClientException {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Sin conexión. Verifica tu internet';
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Error inesperado. Intenta de nuevo';
-      });
-    }
+    // El router reacciona automáticamente al cambio de AuthStatus
+    // Si el registro fue exitoso → AuthStatus.authenticated → redirige al dashboard
+    // Si falló → AuthStatus.unauthenticated con errorMessage → se muestra el error
   }
 
-  // ───── Build ─────
+  // ───── Build ──────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
+    // Escuchar el estado de auth para errores y loading
+    final authState = ref.watch(authProvider);
+    final isLoading = authState.status == AuthStatus.loading;
+    final errorMessage = authState.errorMessage;
+
     return Scaffold(
       body: Row(
         children: [
@@ -197,7 +161,12 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
                 child: Container(
                   constraints: const BoxConstraints(maxWidth: 420),
                   padding: const EdgeInsets.all(40),
-                  child: _currentStep == 1 ? _buildStep1() : _buildStep2(),
+                  child: _currentStep == 1
+                      ? _buildStep1(errorMessage: errorMessage)
+                      : _buildStep2(
+                          isLoading: isLoading,
+                          errorMessage: errorMessage,
+                        ),
                 ),
               ),
             ),
@@ -207,7 +176,8 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
     );
   }
 
-  // ───── Step Indicator ─────
+  // ───── Step Indicator ─────────────────────────────────────
+
   Widget _buildStepIndicator() {
     return Padding(
       padding: const EdgeInsets.only(bottom: 32),
@@ -217,7 +187,9 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
           Expanded(
             child: Container(
               height: 2,
-              color: _currentStep >= 2 ? ColmariaColors.primary : ColmariaColors.divider,
+              color: _currentStep >= 2
+                  ? ColmariaColors.primary
+                  : ColmariaColors.divider,
             ),
           ),
           _stepDot(2, 'Colmado'),
@@ -266,250 +238,247 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
     );
   }
 
-  // ───── Build Step 1: Create account ─────
-  Widget _buildStep1() {
+  // ───── Error Banner ──────────────────────────────────────
+
+  Widget _buildErrorBanner(String message) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEE2E2),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFEF4444)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, color: Color(0xFFEF4444), size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(color: Color(0xFFEF4444), fontSize: 14),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ───── Step 1: Datos personales ─────────────────────────────
+
+  Widget _buildStep1({String? errorMessage}) {
     return Form(
       key: _formKeyStep1,
       child: SingleChildScrollView(
         child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildStepIndicator(),
-          Text(
-            'Crea tu cuenta COLMARIA',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w600,
-              color: ColmariaColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Completa tus datos para registrarte',
-            style: TextStyle(color: ColmariaColors.textMuted, fontSize: 14),
-          ),
-          const SizedBox(height: 32),
-          // Error banner
-          if (_errorMessage != null) ...[
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFEE2E2),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFEF4444)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.error_outline, color: Color(0xFFEF4444), size: 20),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(_errorMessage!,
-                        style: const TextStyle(color: Color(0xFFEF4444), fontSize: 14)),
-                  ),
-                ],
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildStepIndicator(),
+            Text(
+              'Crea tu cuenta COLMARIA',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+                color: ColmariaColors.textPrimary,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 8),
+            Text(
+              'Completa tus datos para registrarte',
+              style: TextStyle(color: ColmariaColors.textMuted, fontSize: 14),
+            ),
+            const SizedBox(height: 32),
+            if (errorMessage != null) _buildErrorBanner(errorMessage),
+            TextFormField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: 'Nombre completo',
+                prefixIcon: Icon(Icons.person_outlined),
+              ),
+              textInputAction: TextInputAction.next,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) return 'El nombre es requerido';
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _emailController,
+              decoration: const InputDecoration(
+                labelText: 'Correo electrónico',
+                prefixIcon: Icon(Icons.email_outlined),
+              ),
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) return 'El correo es requerido';
+                if (!value.contains('@') || !value.contains('.')) return 'Ingresa un correo válido';
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _passwordController,
+              decoration: const InputDecoration(
+                labelText: 'Contraseña',
+                prefixIcon: Icon(Icons.lock_outlined),
+              ),
+              obscureText: true,
+              textInputAction: TextInputAction.next,
+              validator: _validatePassword,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _confirmPasswordController,
+              decoration: const InputDecoration(
+                labelText: 'Confirmar contraseña',
+                prefixIcon: Icon(Icons.lock_outlined),
+              ),
+              obscureText: true,
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _goToStep2(),
+              validator: (value) {
+                if (value == null || value.isEmpty) return 'Confirma tu contraseña';
+                if (value != _passwordController.text) return 'Las contraseñas no coinciden';
+                return null;
+              },
+            ),
+            const SizedBox(height: 32),
+            BotonPrimario(
+              label: 'Continuar →',
+              onPressed: _goToStep2,
+            ),
+            const SizedBox(height: 32),
+            _buildRegisterFooter(),
           ],
-          TextFormField(
-            controller: _nameController,
-            decoration: const InputDecoration(
-              labelText: 'Nombre completo',
-              prefixIcon: Icon(Icons.person_outlined),
-            ),
-            textInputAction: TextInputAction.next,
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) return 'El nombre es requerido';
-              return null;
-            },
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _emailController,
-            decoration: const InputDecoration(
-              labelText: 'Correo electrónico',
-              prefixIcon: Icon(Icons.email_outlined),
-            ),
-            keyboardType: TextInputType.emailAddress,
-            textInputAction: TextInputAction.next,
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) return 'El correo es requerido';
-              if (!value.contains('@') || !value.contains('.')) return 'Ingresa un correo válido';
-              return null;
-            },
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _passwordController,
-            decoration: const InputDecoration(
-              labelText: 'Contraseña',
-              prefixIcon: Icon(Icons.lock_outlined),
-            ),
-            obscureText: true,
-            textInputAction: TextInputAction.next,
-            validator: _validatePassword,
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _confirmPasswordController,
-            decoration: const InputDecoration(
-              labelText: 'Confirmar contraseña',
-              prefixIcon: Icon(Icons.lock_outlined),
-            ),
-            obscureText: true,
-            textInputAction: TextInputAction.done,
-            onFieldSubmitted: (_) => _goToStep2(),
-            validator: (value) {
-              if (value == null || value.isEmpty) return 'Confirma tu contraseña';
-              if (value != _passwordController.text) return 'Las contraseñas no coinciden';
-              return null;
-            },
-          ),
-          const SizedBox(height: 32),
-          BotonPrimario(
-            label: 'Continuar →',
-            onPressed: _goToStep2,
-          ),
-          const SizedBox(height: 32),
-          _buildRegisterFooter(),
-        ],
-      ),
+        ),
       ),
     );
   }
 
-  // ───── Build Step 2: Colmado details ─────
-  Widget _buildStep2() {
+  // ───── Step 2: Datos del colmado ────────────────────────────
+
+  Widget _buildStep2({
+    required bool isLoading,
+    String? errorMessage,
+  }) {
     return Form(
       key: _formKeyStep2,
       child: SingleChildScrollView(
         child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildStepIndicator(),
-          Text(
-            'Tu colmado',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w600,
-              color: ColmariaColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Contanos sobre tu negocio',
-            style: TextStyle(color: ColmariaColors.textMuted, fontSize: 14),
-          ),
-          const SizedBox(height: 32),
-          if (_errorMessage != null) ...[
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFEE2E2),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFEF4444)),
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildStepIndicator(),
+            Text(
+              'Tu colmado',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+                color: ColmariaColors.textPrimary,
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.error_outline, color: Color(0xFFEF4444), size: 20),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(_errorMessage!,
-                        style: const TextStyle(color: Color(0xFFEF4444), fontSize: 14)),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Contanos sobre tu negocio',
+              style: TextStyle(color: ColmariaColors.textMuted, fontSize: 14),
+            ),
+            const SizedBox(height: 32),
+            if (errorMessage != null) _buildErrorBanner(errorMessage),
+            TextFormField(
+              controller: _colmadoNameController,
+              decoration: const InputDecoration(
+                labelText: 'Nombre de tu colmado',
+                prefixIcon: Icon(Icons.store_outlined),
+              ),
+              textInputAction: TextInputAction.next,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty)
+                  return 'El nombre del colmado es requerido';
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _phoneController,
+              decoration: const InputDecoration(
+                labelText: 'Teléfono WhatsApp',
+                hintText: '809 555 1234',
+                prefixIcon: Icon(Icons.phone_outlined),
+              ),
+              keyboardType: TextInputType.phone,
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _handleRegister(),
+              validator: _validatePhoneRD,
+            ),
+            const SizedBox(height: 32),
+            BotonPrimario(
+              label: 'Crear cuenta',
+              isLoading: isLoading,
+              onPressed: isLoading ? null : _handleRegister,
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: TextButton(
+                onPressed: isLoading
+                    ? null
+                    : () => setState(() {
+                          _currentStep = 1;
+                        }),
+                child: Text(
+                  '← Volver',
+                  style: TextStyle(
+                    color: ColmariaColors.textMuted,
+                    fontSize: 14,
                   ),
-                ],
+                ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+            _buildRegisterFooter(),
           ],
-          TextFormField(
-            controller: _colmadoNameController,
-            decoration: const InputDecoration(
-              labelText: 'Nombre de tu colmado',
-              prefixIcon: Icon(Icons.store_outlined),
-            ),
-            textInputAction: TextInputAction.next,
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) return 'El nombre del colmado es requerido';
-              return null;
-            },
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _phoneController,
-            decoration: const InputDecoration(
-              labelText: 'Teléfono WhatsApp',
-              hintText: '809 555 1234',
-              prefixIcon: Icon(Icons.phone_outlined),
-            ),
-            keyboardType: TextInputType.phone,
-            textInputAction: TextInputAction.done,
-            onFieldSubmitted: (_) => _handleRegister(),
-            validator: _validatePhoneRD,
-          ),
-          const SizedBox(height: 32),
-          BotonPrimario(
-            label: 'Crear cuenta',
-            isLoading: _isLoading,
-            onPressed: _isLoading ? null : _handleRegister,
-          ),
-          const SizedBox(height: 16),
-          Center(
-            child: TextButton(
-              onPressed: () => setState(() {
-                _currentStep = 1;
-                _errorMessage = null;
-              }),
-              child: Text(
-                '← Volver',
-                style: TextStyle(color: ColmariaColors.textMuted, fontSize: 14),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildRegisterFooter(),
-        ],
-      ),
+        ),
       ),
     );
   }
 
-  // ───── Footer compartido ─────
+  // ───── Footer compartido ────────────────────────────────────
+
   Widget _buildRegisterFooter() {
     return Center(
       child: FittedBox(
         child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            '¿Ya tenés cuenta? ',
-            style: TextStyle(color: ColmariaColors.textMuted, fontSize: 14),
-          ),
-          TextButton(
-            onPressed: () => context.go('/login'),
-            style: TextButton.styleFrom(
-              padding: EdgeInsets.zero,
-              minimumSize: const Size(0, 0),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '¿Ya tenés cuenta? ',
+              style: TextStyle(color: ColmariaColors.textMuted, fontSize: 14),
             ),
-            child: Text(
-              'Iniciar sesión',
-              style: TextStyle(
-                color: ColmariaColors.primary,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+            TextButton(
+              onPressed: () => context.go('/login'),
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(0, 0),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(
+                'Iniciar sesión',
+                style: TextStyle(
+                  color: ColmariaColors.primary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
 
-  // ───── Feature items (left column) ─────
+  // ───── Feature items (left column) ─────────────────────────
+
   Widget _buildFeatureItem(IconData icon, String text) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
