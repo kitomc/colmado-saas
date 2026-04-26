@@ -1,4 +1,4 @@
-import { mutation } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
 // Nano 1.8 - Mutation: crearProducto
@@ -124,5 +124,41 @@ export const eliminarProducto = mutation({
     await ctx.db.delete(args.productoId);
 
     return { success: true };
+  },
+});
+
+// ─── Query: productosPorCategoria ────────────────────────────────────────────
+
+/**
+ * Query: productosPorCategoria
+ *
+ * Filtra productos de un colmado por categoría y los ordena alfabéticamente.
+ * Retorna TODOS los productos (disponibles y no disponibles) — el caller filtra.
+ *
+ * @param colmadoId - ID del colmado
+ * @param categoria - Categoría exacta a filtrar (case-sensitive)
+ * @returns Lista de productos ordenados por nombre
+ */
+export const productosPorCategoria = query({
+  args: {
+    colmadoId: v.id("colmados"),
+    categoria: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Edge case: categoría vacía retorna array vacío
+    if (!args.categoria || args.categoria.trim() === "") {
+      return [];
+    }
+
+    // Traer todos los productos del colmado (usa índice by_colmado_id)
+    const productos = await ctx.db
+      .query("productos")
+      .withIndex("by_colmado_id", (q) => q.eq("colmado_id", args.colmadoId))
+      .collect();
+
+    // Filtrar por categoría y ordenar por nombre ASC
+    return productos
+      .filter((p) => p.categoria === args.categoria)
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
   },
 });
