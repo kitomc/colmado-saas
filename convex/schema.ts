@@ -1,7 +1,11 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { authTables } from "./auth";
 
 export default defineSchema({
+  // Convex Auth tables (users + sessions)
+  ...authTables,
+
   // Nano 1.1 - Tabla colmados
   // ACTUALIZADO: campos Embedded Signup de Meta
   colmados: defineTable({
