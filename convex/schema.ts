@@ -7,7 +7,7 @@ export default defineSchema({
   ...authTables,
 
   // Nano 1.1 - Tabla colmados
-  // ACTUALIZADO: campos Embedded Signup de Meta
+  // ACTUALIZADO: campos Embedded Signup de Meta + Convex Auth user_id
   colmados: defineTable({
     nombre: v.string(),
     telefono_whatsapp: v.string(),        // Número visible: +18091234567
@@ -17,11 +17,13 @@ export default defineSchema({
     meta_conectado: v.optional(v.boolean()), // true = conectado via Embedded Signup
     meta_connected_at: v.optional(v.number()), // timestamp de conexión
     telegram_chat_id: v.optional(v.string()),
+    user_id: v.optional(v.id("users")),   // Convex Auth user ID (opcional para backward compat)
     activo: v.boolean(),
     created_at: v.number(),
   })
     .index("by_telefono_whatsapp", ["telefono_whatsapp"])
-    .index("by_waba_id", ["waba_id"]),
+    .index("by_waba_id", ["waba_id"])
+    .index("by_user_id", ["user_id"]),
 
   // Nano 1.2 - Tabla productos
   productos: defineTable({

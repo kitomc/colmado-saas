@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/auth/login_page.dart';
@@ -10,41 +11,151 @@ import '../features/clientes/clientes_page.dart';
 import '../features/metricas/metricas_page.dart';
 import '../features/configuracion/configuracion_page.dart';
 import '../shared/widgets/app_shell.dart';
+import '../shared/providers/auth_provider.dart';
 
-GoRouter createRouter(bool isAuthenticated, Function(bool) onAuthStateChanged) {
+/// Router provider que usa Riverpod
+final routerProvider = Provider<GoRouter>((ref) {
+  final authState = ref.watch(authProvider);
+  
   return GoRouter(
-    initialLocation: isAuthenticated ? '/dashboard' : '/login',
+    initialLocation: '/splash',
+    redirect: (context, state) {
+      final status = authState.status;
+      final isAuthenticated = status == AuthStatus.authenticated;
+      final isLoading = status == AuthStatus.loading;
+      final goingToLogin = state.matchedLocation == '/login';
+      final goingToSplash = state.matchedLocation == '/splash';
+      
+      // Mientras carga, mostrar splash
+      if (isLoading && !goingToSplash) {
+        return '/splash';
+      }
+      
+      // Si no está autenticado y no va a login, redirigir a login
+      if (!isAuthenticated && !goingToLogin && !goingToSplash) {
+        return '/login';
+      }
+      
+      // Si está autenticado y va a login, redirigir a dashboard
+      if (isAuthenticated && goingToLogin) {
+        return '/dashboard';
+      }
+      
+      return null;
+    },
+    refreshListenable: RouterRefreshNotifier(ref),
     routes: [
       GoRoute(
+        path: '/splash',
+        builder: (context, state) => const _SplashScreen(),
+      ),
+      GoRoute(
         path: '/login',
-        builder: (context, state) => LoginPage(
-          onAuthStateChanged: onAuthStateChanged,
-        ),
+        builder: (context, state) => const LoginPage(),
       ),
       ShellRoute(
-        builder: (context, state, child) => AppShell(
-          child: child,
-          onAuthStateChanged: onAuthStateChanged,
-        ),
+        builder: (context, state, child) => AppShell(child: child),
         routes: [
-          GoRoute(path: '/dashboard', builder: (context, state) => const DashboardPage()),
-          GoRoute(path: '/productos', builder: (context, state) => const ProductosPage()),
-          GoRoute(path: '/pedidos', builder: (context, state) => const PedidosPage()),
-          GoRoute(path: '/whatsapp', builder: (context, state) => const WhatsAppPage()),
-          GoRoute(path: '/clientes', builder: (context, state) => const ClientesPage()),
-          GoRoute(path: '/metricas', builder: (context, state) => const MetricasPage()),
-          GoRoute(path: '/configuracion', builder: (context, state) => const ConfiguracionPage()),
+          GoRoute(
+            path: '/dashboard',
+            builder: (context, state) => const DashboardPage(),
+          ),
+          GoRoute(
+            path: '/productos',
+            builder: (context, state) => const ProductosPage(),
+          ),
+          GoRoute(
+            path: '/pedidos',
+            builder: (context, state) => const PedidosPage(),
+          ),
+          GoRoute(
+            path: '/whatsapp',
+            builder: (context, state) => const WhatsAppPage(),
+          ),
+          GoRoute(
+            path: '/clientes',
+            builder: (context, state) => const ClientesPage(),
+          ),
+          GoRoute(
+            path: '/metricas',
+            builder: (context, state) => const MetricasPage(),
+          ),
+          GoRoute(
+            path: '/configuracion',
+            builder: (context, state) => const ConfiguracionPage(),
+          ),
         ],
       ),
     ],
-    redirect: (context, state) {
-      if (!isAuthenticated && state.uri.toString() != '/login') {
-        return '/login';
-      }
-      if (isAuthenticated && state.uri.toString() == '/login') {
-        return '/dashboard';
-      }
-      return null;
-    },
   );
+});
+
+/// Notificador para que el router reaccione a cambios en auth
+class RouterRefreshNotifier extends ChangeNotifier {
+  RouterRefreshNotifier(Ref ref) {
+    ref.listen(authProvider, (previous, next) {
+      notifyListeners();
+    });
+  }
+}
+
+/// Pantalla de splash mientras verifica auth
+class _SplashScreen extends ConsumerStatefulWidget {
+  const _SplashScreen();
+
+  @override
+  ConsumerState<_SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends ConsumerState<_SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Inicializar auth al entrar al splash
+    Future.microtask(() {
+      ref.read(authProvider.notifier).initialize();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F5132),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Logo
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: const Icon(
+                Icons.storefront,
+                size: 64,
+                color: Color(0xFF0F5132),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'COLMARIA',
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                letterSpacing: 4,
+              ),
+            ),
+            const SizedBox(height: 32),
+            const CircularProgressIndicator(
+              color: Colors.white,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

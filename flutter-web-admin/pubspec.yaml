@@ -26,6 +26,10 @@ dependencies:
   timeago: ^3.6.0
   # SVG
   flutter_svg: ^2.0.0
+  # HTTP
+  http: ^1.2.0
+  # Storage
+  shared_preferences: ^2.2.3
 
 dev_dependencies:
   flutter_test:

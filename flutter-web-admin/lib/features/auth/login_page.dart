@@ -1,26 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
 import '../../shared/widgets/boton_primario.dart';
-import '../../shared/widgets/boton_secundario.dart';
+import '../../shared/providers/auth_provider.dart';
 
-class LoginPage extends ConsumerStatefulWidget {
-  final Function(bool)? onAuthStateChanged;
-
-  const LoginPage({super.key, this.onAuthStateChanged});
+class LoginPage extends ConsumerWidget {
+  const LoginPage({super.key});
 
   @override
-  ConsumerState<LoginPage> createState() => _LoginPageState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    return _LoginForm();
+  }
 }
 
-class _LoginPageState extends ConsumerState<LoginPage> {
+class _LoginForm extends ConsumerStatefulWidget {
+  const _LoginForm();
+
+  @override
+  ConsumerState<_LoginForm> createState() => _LoginFormState();
+}
+
+class _LoginFormState extends ConsumerState<_LoginForm> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _isLoading = false;
-  String? _errorMessage;
 
   @override
   void dispose() {
@@ -32,49 +36,23 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    // Simular delay de red
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    // Credenciales válidas
-    final validUsers = [
-      {'email': 'admin@colmado.com', 'password': 'colmado123'},
-      {'email': 'test@colmado.com', 'password': 'test123'},
-    ];
-
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    final isValid = validUsers.any(
-      (u) => u['email'] == email && u['password'] == password
-    );
+    // Llamar al auth provider
+    await ref.read(authProvider.notifier).signIn(email, password);
 
-    if (isValid) {
-      if (mounted) {
-        widget.onAuthStateChanged?.call(true);
-        context.go('/dashboard');
-      }
-    } else {
-      if (mounted) {
-        setState(() {
-          _errorMessage = 'Credenciales incorrectas. Verifica tu email y contraseña.';
-        });
-      }
-    }
-
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
-    }
+    // El router reaccionará automáticamente al cambio de estado
+    // No necesitamos redirigir manualmente
   }
 
   @override
   Widget build(BuildContext context) {
+    // Observar el estado de auth
+    final authState = ref.watch(authProvider);
+    final isLoading = authState.status == AuthStatus.loading;
+    final errorMessage = authState.errorMessage;
+
     return Scaffold(
       body: Row(
         children: [
@@ -96,7 +74,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       child: const Icon(Icons.store, color: Colors.white, size: 64),
                     ),
                     const SizedBox(height: 32),
-                    Text(
+                    const Text(
                       'COLMARIA',
                       style: TextStyle(
                         color: Colors.white,
@@ -106,7 +84,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Text(
+                    const Text(
                       'Tu colmado digital',
                       style: TextStyle(color: Colors.white70, fontSize: 18),
                     ),
@@ -149,7 +127,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           style: TextStyle(color: ColmariaColors.textMuted, fontSize: 14),
                         ),
                         const SizedBox(height: 40),
-                        if (_errorMessage != null) ...[
+                        if (errorMessage != null) ...[
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
@@ -162,7 +140,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                 const Icon(Icons.error_outline, color: Color(0xFFEF4444), size: 20),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: Text(_errorMessage!, style: const TextStyle(color: Color(0xFFEF4444), fontSize: 14)),
+                                  child: Text(errorMessage, style: const TextStyle(color: Color(0xFFEF4444), fontSize: 14)),
                                 ),
                               ],
                             ),
@@ -212,48 +190,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         const SizedBox(height: 24),
                         BotonPrimario(
                           label: 'Iniciar sesión',
-                          isLoading: _isLoading,
-                          onPressed: _isLoading ? null : _handleLogin,
-                        ),
-                        const SizedBox(height: 32),
-                        // Demo credentials button
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFDCFCE7),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFF16AA3A).withValues(alpha: 0.3)),
-                          ),
-                          child: Column(
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(Icons.info_outline, color: Color(0xFF16AA3A), size: 20),
-                                  const SizedBox(width: 8),
-                                  const Expanded(
-                                    child: Text(
-                                      'Modo demo — Acceso rápido',
-                                      style: TextStyle(
-                                        color: Color(0xFF16AA3A),
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              BotonSecundario(
-                                label: 'Usar credenciales de prueba',
-                                icon: Icons.play_arrow,
-                                onPressed: () {
-                                  _emailController.text = 'admin@colmado.com';
-                                  _passwordController.text = 'colmado123';
-                                  _handleLogin();
-                                },
-                              ),
-                            ],
-                          ),
+                          isLoading: isLoading,
+                          onPressed: isLoading ? null : _handleLogin,
                         ),
                         const SizedBox(height: 32),
                         Center(

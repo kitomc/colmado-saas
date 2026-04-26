@@ -3,6 +3,27 @@ import { v } from "convex/values";
 
 // ============ QUERIES ============
 
+// Query: getMyColmado — retorna el colmado + email del usuario autenticado
+export const getMyColmado = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return { colmado: null, userEmail: null };
+    }
+
+    const colmado = await ctx.db
+      .query("colmados")
+      .withIndex("by_user_id", (q) => q.eq("user_id", identity.subject))
+      .first();
+
+    return {
+      colmado: colmado ?? null,
+      userEmail: identity.email ?? null,
+    };
+  },
+});
+
 // Query: getColmadoById
 export const getColmadoById = query({
   args: {

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme.dart';
+import '../providers/auth_provider.dart';
 
 /// Provider del estado del colmado
 final colmadoProvider = StateProvider<Map<String, dynamic>?>((ref) => null);
@@ -15,18 +16,17 @@ final whatsappConectadoProvider = Provider<bool>((ref) {
 
 class AppShell extends ConsumerWidget {
   final Widget child;
-  final Function(bool)? onAuthStateChanged;
 
   const AppShell({
     super.key,
     required this.child,
-    this.onAuthStateChanged,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final location = GoRouterState.of(context).uri.toString();
     final whatsappConectado = ref.watch(whatsappConectadoProvider);
+    final authState = ref.watch(authProvider);
 
     return Scaffold(
       body: Row(
@@ -146,7 +146,7 @@ class AppShell extends ConsumerWidget {
                                   ),
                                 ),
                                 Text(
-                                  'admin@colmado.com',
+                                  authState.userEmail ?? 'Sin email',
                                   style: TextStyle(
                                     color: Colors.white70,
                                     fontSize: 10,
@@ -157,10 +157,8 @@ class AppShell extends ConsumerWidget {
                           ),
                           IconButton(
                             icon: Icon(Icons.logout, color: Colors.white70, size: 18),
-                            onPressed: () async {
-                              // Logout local simulado
-                              await Future.delayed(const Duration(milliseconds: 300));
-                              onAuthStateChanged?.call(false);
+                            onPressed: () {
+                              ref.read(authProvider.notifier).signOut();
                             },
                             tooltip: 'Cerrar sesión',
                           ),
