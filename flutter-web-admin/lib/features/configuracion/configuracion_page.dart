@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme.dart';
+import '../../shared/providers/convex_providers.dart';
 
 /// Provider for settings
 final settingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {

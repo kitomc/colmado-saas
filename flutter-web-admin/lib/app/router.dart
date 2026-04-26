@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/auth/login_page.dart';
+import '../features/auth/register_page.dart';
+import '../features/auth/onboarding_page.dart';
 import '../features/dashboard/dashboard_page.dart';
 import '../features/productos/productos_page.dart';
 import '../features/pedidos/pedidos_page.dart';
@@ -23,7 +25,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final status = authState.status;
       final isAuthenticated = status == AuthStatus.authenticated;
       final isLoading = status == AuthStatus.loading;
-      final goingToLogin = state.matchedLocation == '/login';
+      final goingToPublicRoute = state.matchedLocation == '/login' || state.matchedLocation == '/register';
       final goingToSplash = state.matchedLocation == '/splash';
       
       // Mientras carga, mostrar splash
@@ -31,13 +33,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/splash';
       }
       
-      // Loading terminó + no autenticado → login
-      if (!isLoading && !isAuthenticated && !goingToLogin) {
+      // Loading terminó + no autenticado → login (permitir /register sin auth)
+      if (!isLoading && !isAuthenticated && !goingToPublicRoute) {
         return '/login';
       }
       
-      // Si está autenticado y va a login, redirigir a dashboard
-      if (isAuthenticated && goingToLogin) {
+      // Si está autenticado y va a login/register, redirigir a dashboard
+      if (isAuthenticated && goingToPublicRoute) {
         return '/dashboard';
       }
       
@@ -52,6 +54,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginPage(),
+      ),
+      GoRoute(
+        path: '/register',
+        builder: (context, state) => const RegisterPage(),
+      ),
+      GoRoute(
+        path: '/onboarding',
+        builder: (context, state) => const OnboardingPage(),
       ),
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),

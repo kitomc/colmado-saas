@@ -180,3 +180,50 @@ export const cancelarOrden = mutation({
     return { success: true, ordenId: args.ordenId };
   },
 });
+
+// ============ QUERIES PARA ADMIN WEB ============
+
+// Query: listByEstado — órdenes filtradas por estado (o "todos" para todas)
+export const listByEstado = query({
+  args: { colmado_id: v.id("colmados"), estado: v.string() },
+  handler: async (ctx, args) => {
+    if (args.estado === "todos") {
+      return await ctx.db
+        .query("ordenes")
+        .withIndex("by_colmado_id", (q) => q.eq("colmado_id", args.colmado_id))
+        .order("desc")
+        .take(100);
+    }
+    return await ctx.db
+      .query("ordenes")
+      .withIndex("by_colmado_id", (q) => q.eq("colmado_id", args.colmado_id))
+      .filter((q) => q.eq(q.field("estado"), args.estado))
+      .order("desc")
+      .take(100);
+  },
+});
+
+// Query: getMetricas — métricas de ventas en un rango de fechas
+export const getMetricas = query({
+  args: { colmado_id: v.id("colmados"), desde: v.number(), hasta: v.number() },
+  handler: async (ctx, args) => {
+    const ordenes = await ctx.db
+      .query("ordenes")
+      .withIndex("by_colmado_id", (q) => q.eq("colmado_id", args.colmado_id))
+      .filter((q) =>
+        q.and(q.gte(q.field("created_at"), args.desde), q.lte(q.field("created_at"), args.hasta))
+      )
+      .collect();
+
+    const ventasTotal = ordenes.reduce((s, o) => s + o.total, 0);
+    const ticketPromedio = ordenes.length > 0 ? ventasTotal / ordenes.length : 0;
+
+    const porDia: Record<string, number> = {};
+    for (const o of ordenes) {
+      const dia = new Date(o.created_at).toISOString().split("T")[0];
+      porDia[dia] = (porDia[dia] || 0) + o.total;
+    }
+
+    return { ventasTotal, totalOrdenes: ordenes.length, ticketPromedio, ventasPorDia: porDia };
+  },
+});

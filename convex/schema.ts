@@ -16,6 +16,10 @@ export default defineSchema({
     waba_id: v.optional(v.string()),      // WhatsApp Business Account ID
     meta_conectado: v.optional(v.boolean()), // true = conectado via Embedded Signup
     meta_connected_at: v.optional(v.number()), // timestamp de conexión
+    evolution_instance_name: v.optional(v.string()),
+    evolution_connected: v.optional(v.boolean()),
+    evolution_connected_at: v.optional(v.number()),
+    onboarding_completo: v.optional(v.boolean()),
     telegram_chat_id: v.optional(v.string()),
     user_id: v.optional(v.id("users")),   // Convex Auth user ID (opcional para backward compat)
     activo: v.boolean(),
@@ -24,6 +28,19 @@ export default defineSchema({
     .index("by_telefono_whatsapp", ["telefono_whatsapp"])
     .index("by_waba_id", ["waba_id"])
     .index("by_user_id", ["user_id"]),
+
+  // Tabla usuarios — mapeo entre Convex Auth users y roles del sistema
+  usuarios: defineTable({
+    userId: v.id("users"),
+    colmado_id: v.id("colmados"),
+    rol: v.union(v.literal("super_admin"), v.literal("admin_colmado"), v.literal("empleado")),
+    email: v.string(),
+    nombre: v.optional(v.string()),
+    activo: v.boolean(),
+    created_at: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_colmado_id", ["colmado_id"]),
 
   // Nano 1.2 - Tabla productos
   productos: defineTable({

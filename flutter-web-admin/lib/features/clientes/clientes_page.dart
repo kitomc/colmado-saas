@@ -4,45 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
 import '../../shared/widgets/empty_state.dart';
-
-/// Provider for clients list
-final clientesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
-  // TODO: Connect to Convex query
-  return [
-    {
-      'id': 'cli_001',
-      'nombre': 'Juan Pérez',
-      'telefono': '8091234567',
-      'total_orders': 45,
-      'total_gastado': 42500.00,
-      'ultimo_pedido': DateTime.now().subtract(Duration(days: 1)),
-    },
-    {
-      'id': 'cli_002',
-      'nombre': 'María García',
-      'telefono': '8299876543',
-      'total_orders': 32,
-      'total_gastado': 28900.00,
-      'ultimo_pedido': DateTime.now().subtract(Duration(days: 3)),
-    },
-    {
-      'id': 'cli_003',
-      'nombre': 'Carlos López',
-      'telefono': '8495551234',
-      'total_orders': 28,
-      'total_gastado': 24100.00,
-      'ultimo_pedido': DateTime.now().subtract(Duration(days: 5)),
-    },
-    {
-      'id': 'cli_004',
-      'nombre': 'Ana Martínez',
-      'telefono': '8094445678',
-      'total_orders': 15,
-      'total_gastado': 12300.00,
-      'ultimo_pedido': DateTime.now().subtract(Duration(days: 7)),
-    },
-  ];
-});
+import '../../shared/providers/convex_providers.dart';
 
 /// Search query provider
 final clientesSearchProvider = StateProvider<String>((ref) => '');

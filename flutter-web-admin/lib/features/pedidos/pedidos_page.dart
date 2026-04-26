@@ -6,6 +6,7 @@ import 'package:timeago/timeago.dart' as timeago;
 import '../../app/theme.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/estado_chip.dart';
+import '../../shared/providers/convex_providers.dart';
 
 /// Helper to get current tab value
 String tabValueFromIndex(int index) {
@@ -39,73 +40,8 @@ String tabLabelFromIndex(int index) {
   }
 }
 
-/// Provider for orders filtered by tab
-final ordersProvider = FutureProvider.family<List<Map<String, dynamic>>, String>((ref, tab) async {
-  // TODO: Connect to Convex query with filter
-  final allOrders = [
-    {
-      'id': 'ord_001',
-      'cliente_nombre': 'Juan Pérez',
-      'cliente_telefono': '8091234567',
-      'items': [
-        {'nombre': 'Cerveza Presidente', 'cantidad': 6, 'precio': 80},
-      ],
-      'total': 480.00,
-      'estado': 'lista_para_imprimir',
-      'created_at': DateTime.now().subtract(Duration(minutes: 5)),
-    },
-    {
-      'id': 'ord_002',
-      'cliente_nombre': 'María García',
-      'cliente_telefono': '8299876543',
-      'items': [
-        {'nombre': 'Bavaria', 'cantidad': 12, 'precio': 75},
-        {'nombre': 'Papas Hit', 'cantidad': 2, 'precio': 35},
-      ],
-      'total': 970.00,
-      'estado': 'confirmada',
-      'created_at': DateTime.now().subtract(Duration(minutes: 15)),
-    },
-    {
-      'id': 'ord_003',
-      'cliente_nombre': 'Carlos López',
-      'cliente_telefono': '8495551234',
-      'items': [
-        {'nombre': 'Quilmes', 'cantidad': 6, 'precio': 85},
-        {'nombre': 'Galletas Gamesa', 'cantidad': 3, 'precio': 25},
-      ],
-      'total': 585.00,
-      'estado': 'imprimiendo',
-      'created_at': DateTime.now().subtract(Duration(minutes: 25)),
-    },
-    {
-      'id': 'ord_004',
-      'cliente_nombre': 'Ana Martínez',
-      'cliente_telefono': '8094445678',
-      'items': [
-        {'nombre': 'Cerveza Presidente', 'cantidad': 24, 'precio': 80},
-      ],
-      'total': 1920.00,
-      'estado': 'impresa',
-      'created_at': DateTime.now().subtract(Duration(minutes: 45)),
-    },
-    {
-      'id': 'ord_005',
-      'cliente_nombre': 'Luis Rodríguez',
-      'cliente_telefono': '8297778888',
-      'items': [
-        {'nombre': 'Bavaria', 'cantidad': 6, 'precio': 75},
-      ],
-      'total': 450.00,
-      'estado': 'cancelada',
-      'created_at': DateTime.now().subtract(Duration(hours: 1)),
-    },
-  ];
-
-  if (tab == 'todos') return allOrders;
-  
-  return allOrders.where((order) => order['estado'] == tab).toList();
-});
+/// Provider for orders filtered by tab (reactivo, desde Convex)
+/// Reemplaza el mock anterior. Usa pedidosProvider de convex_providers.dart.
 
 /// Provider for current tab index
 final pedidosTabProvider = StateProvider<int>((ref) => 0);
@@ -117,7 +53,7 @@ class PedidosPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentTab = ref.watch(pedidosTabProvider);
     final tabValue = tabValueFromIndex(currentTab);
-    final ordersAsync = ref.watch(ordersProvider(tabValue));
+    final ordersAsync = ref.watch(pedidosProvider(tabValue));
 
     return DefaultTabController(
       length: 4,
@@ -141,7 +77,7 @@ class PedidosPage extends ConsumerWidget {
                   ),
                   const Spacer(),
                   IconButton(
-                    onPressed: () => ref.invalidate(ordersProvider(tabValue)),
+                    onPressed: () => ref.invalidate(pedidosProvider(tabValue)),
                     icon: const Icon(Icons.refresh),
                     tooltip: 'Actualizar',
                   ),

@@ -4,52 +4,57 @@ import 'package:fl_chart/fl_chart.dart';
 
 import '../../app/theme.dart';
 import '../../shared/widgets/kpi_card.dart';
+import '../../shared/widgets/empty_state.dart';
+import '../../shared/providers/convex_providers.dart';
+import '../../shared/utils/formatters.dart';
 
-/// Provider for weekly metrics
-final metricasSemanalesProvider = FutureProvider<Map<String, dynamic>>((ref) async {
-  // TODO: Connect to Convex query
-  return {
-    'ventas_semana': 45200.00,
-    'pedidos_semana': 89,
-    'nuevos_clientes': 12,
-    'ticket_promedio': 508.00,
-  };
-});
+/// Opciones de rango de fechas para las métricas
+enum RangoMetricas { siete, treinta, noventa }
 
-/// Provider for daily breakdown
-final metricasDiariasProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
-  // TODO: Connect to Convex query
-  return [
-    {'dia': 'Lun', 'ventas': 6200, 'pedidos': 12},
-    {'dia': 'Mar', 'ventas': 5800, 'pedidos': 10},
-    {'dia': 'Mié', 'ventas': 7100, 'pedidos': 14},
-    {'dia': 'Jue', 'ventas': 6500, 'pedidos': 11},
-    {'dia': 'Vie', 'ventas': 8200, 'pedidos': 16},
-    {'dia': 'Sáb', 'ventas': 9400, 'pedidos': 18},
-    {'dia': 'Dom', 'ventas': 2000, 'pedidos': 8},
-  ];
-});
+extension on RangoMetricas {
+  String get label {
+    switch (this) {
+      case RangoMetricas.siete:
+        return '7 días';
+      case RangoMetricas.treinta:
+        return '30 días';
+      case RangoMetricas.noventa:
+        return '90 días';
+    }
+  }
 
-/// Provider for top products
-final topProductosProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
-  // TODO: Connect to Convex query
-  return [
-    {'nombre': 'Cerveza Presidente', 'cantidad': 145, 'ingresos': 11600},
-    {'nombre': 'Bavaria', 'cantidad': 98, 'ingresos': 7350},
-    {'nombre': 'Quilmes', 'cantidad': 76, 'ingresos': 6460},
-    {'nombre': 'Papas Hit', 'cantidad': 234, 'ingresos': 8190},
-    {'nombre': 'Galletas Gamesa', 'cantidad': 189, 'ingresos': 4725},
-  ];
-});
+  int get dias {
+    switch (this) {
+      case RangoMetricas.siete:
+        return 7;
+      case RangoMetricas.treinta:
+        return 30;
+      case RangoMetricas.noventa:
+        return 90;
+    }
+  }
 
-class MetricasPage extends ConsumerWidget {
+  DateRange toDateRange() {
+    final end = DateTime.now();
+    final start = end.subtract(Duration(days: dias));
+    return DateRange(start: start, end: end);
+  }
+}
+
+class MetricasPage extends ConsumerStatefulWidget {
   const MetricasPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final semanalesAsync = ref.watch(metricasSemanalesProvider);
-    final diariasAsync = ref.watch(metricasDiariasProvider);
-    final topAsync = ref.watch(topProductosProvider);
+  ConsumerState<MetricasPage> createState() => _MetricasPageState();
+}
+
+class _MetricasPageState extends ConsumerState<MetricasPage> {
+  RangoMetricas _rangoSeleccionado = RangoMetricas.siete;
+
+  @override
+  Widget build(BuildContext context) {
+    final dateRange = _rangoSeleccionado.toDateRange();
+    final metricasAsync = ref.watch(metricasProvider(dateRange));
 
     return Scaffold(
       backgroundColor: ColmariaColors.background,
@@ -58,40 +63,39 @@ class MetricasPage extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Métricas',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w600,
-                color: ColmariaColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 24),
-            
-            // Weekly KPIs
-            semanalesAsync.when(
-              data: (data) => _buildWeeklyKPIs(data),
-              loading: () => _buildLoadingRow(),
-              error: (_, __) => _buildWeeklyKPIs({}),
-            ),
-            const SizedBox(height: 24),
-            
-            // Charts Row
+            // ── Header ──
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Daily Chart - 60%
-                Expanded(
-                  flex: 60,
-                  child: _buildDailyChart(diariasAsync),
+                Text(
+                  'Métricas',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
+                    color: ColmariaColors.textPrimary,
+                  ),
                 ),
-                const SizedBox(width: 24),
-                // Top Products - 40%
-                Expanded(
-                  flex: 40,
-                  child: _buildTopProducts(topAsync),
+                const Spacer(),
+                SegmentedButton<RangoMetricas>(
+                  segments: RangoMetricas.values.map((r) {
+                    return ButtonSegment(value: r, label: Text(r.label));
+                  }).toList(),
+                  selected: {_rangoSeleccionado},
+                  onSelectionChanged: (selected) {
+                    setState(() => _rangoSeleccionado = selected.first);
+                  },
+                  style: const ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                  ),
                 ),
               ],
+            ),
+            const SizedBox(height: 24),
+
+            // ── Contenido según estado ──
+            metricasAsync.when(
+              data: (data) => _buildContent(data),
+              loading: () => _buildLoading(),
+              error: (_, __) => _buildError(),
             ),
           ],
         ),
@@ -99,64 +103,103 @@ class MetricasPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildWeeklyKPIs(Map<String, dynamic> data) {
-    return Row(
+  // ══════════════════════════════════════════════════
+  //  CONTENIDO PRINCIPAL
+  // ══════════════════════════════════════════════════
+
+  Widget _buildContent(Map<String, dynamic> data) {
+    if (data.isEmpty) {
+      return SizedBox(
+        height: 400,
+        child: EmptyState(
+          icon: Icons.bar_chart,
+          title: 'No hay datos para este período',
+          subtitle:
+              'Las métricas aparecerán cuando haya actividad en el colmado.',
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: KpiCard(
-            title: 'Ventas semana',
-            value: '\$${(data['ventas_semana'] as double? ?? 0).toStringAsFixed(0)}',
-            icon: Icons.trending_up,
-            color: ColmariaColors.primary,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: KpiCard(
-            title: 'Pedidos semana',
-            value: '${data['pedidos_semana'] ?? 0}',
-            icon: Icons.receipt_long,
-            color: ColmariaColors.info,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: KpiCard(
-            title: 'Nuevos clientes',
-            value: '${data['nuevos_clientes'] ?? 0}',
-            icon: Icons.person_add,
-            color: ColmariaColors.chipGreenTx,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: KpiCard(
-            title: 'Ticket promedio',
-            value: '\$${(data['ticket_promedio'] as double? ?? 0).toStringAsFixed(0)}',
-            icon: Icons.payments,
-            color: ColmariaColors.warning,
-          ),
-        ),
+        _buildKpiRow(data),
+        const SizedBox(height: 24),
+        _buildVentasPorDia(data),
+        const SizedBox(height: 24),
+        _buildTopProductos(data),
+        const SizedBox(height: 24),
+        _buildRendimientoBot(data),
       ],
     );
   }
 
-  Widget _buildLoadingRow() {
-    return Row(
-      children: List.generate(
-        4,
-        (index) => Expanded(
-          child: Container(
-            margin: EdgeInsets.only(right: index < 3 ? 16 : 0),
-            height: 120,
-            color: Colors.white,
-          ),
-        ),
-      ),
+  // ══════════════════════════════════════════════════
+  //  FILA 1 — KPI Cards
+  // ══════════════════════════════════════════════════
+
+  Widget _buildKpiRow(Map<String, dynamic> data) {
+    final ventasTotal = (data['ventasTotal'] as num?)?.toDouble() ?? 0;
+    final totalOrdenes = (data['totalOrdenes'] as num?)?.toInt() ?? 0;
+    final ticketPromedio = (data['ticketPromedio'] as num?)?.toDouble() ?? 0;
+    final clientesUnicos = (data['clientesUnicos'] as num?)?.toInt();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = (constraints.maxWidth - 48) / 4;
+        return Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: [
+            SizedBox(
+              width: cardWidth.clamp(200, 300),
+              child: KpiCard(
+                title: 'Ventas totales',
+                value: formatRD(ventasTotal),
+                icon: Icons.trending_up,
+                color: ColmariaColors.primary,
+              ),
+            ),
+            SizedBox(
+              width: cardWidth.clamp(200, 300),
+              child: KpiCard(
+                title: 'Total órdenes',
+                value: totalOrdenes.toString(),
+                icon: Icons.receipt_long,
+                color: ColmariaColors.info,
+              ),
+            ),
+            SizedBox(
+              width: cardWidth.clamp(200, 300),
+              child: KpiCard(
+                title: 'Ticket promedio',
+                value: formatRD(ticketPromedio),
+                icon: Icons.payments,
+                color: ColmariaColors.warning,
+              ),
+            ),
+            SizedBox(
+              width: cardWidth.clamp(200, 300),
+              child: KpiCard(
+                title: 'Clientes únicos',
+                value: clientesUnicos?.toString() ?? '-',
+                icon: Icons.people,
+                color: ColmariaColors.chipGreenTx,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildDailyChart(AsyncValue<List<Map<String, dynamic>>> dataAsync) {
+  // ══════════════════════════════════════════════════
+  //  FILA 2 — Ventas por día (LineChart)
+  // ══════════════════════════════════════════════════
+
+  Widget _buildVentasPorDia(Map<String, dynamic> data) {
+    final ventasPorDia = data['ventasPorDia'] as List<dynamic>? ?? [];
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -176,26 +219,58 @@ class MetricasPage extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 24),
-          dataAsync.when(
-            data: (data) => SizedBox(
+          if (ventasPorDia.isEmpty)
+            const SizedBox(
               height: 200,
-              child: BarChart(
-                BarChartData(
-                  alignment: BarChartAlignment.spaceAround,
-                  maxY: data.map((d) => d['ventas'] as int).reduce((a, b) => a > b ? a : b) * 1.2,
-                  barTouchData: BarTouchData(enabled: false),
+              child: Center(child: Text('No hay datos para este período')),
+            )
+          else
+            SizedBox(
+              height: 250,
+              child: LineChart(
+                LineChartData(
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    getDrawingHorizontalLine: (value) => FlLine(
+                      color: ColmariaColors.divider,
+                      strokeWidth: 1,
+                    ),
+                  ),
                   titlesData: FlTitlesData(
                     show: true,
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
+                        reservedSize: 32,
+                        interval: _bottomInterval(ventasPorDia.length),
                         getTitlesWidget: (value, meta) {
-                          final days = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-                          return Text(
-                            days[value.toInt()],
-                            style: TextStyle(
-                              color: ColmariaColors.textMuted,
-                              fontSize: 12,
+                          final idx = value.toInt();
+                          if (idx < 0 || idx >= ventasPorDia.length) {
+                            return const SizedBox.shrink();
+                          }
+                          final item =
+                              ventasPorDia[idx] as Map<String, dynamic>;
+                          final fecha = item['fecha'] as String? ?? '';
+                          // Mostrar solo día/mes
+                          final parts = fecha.split('-');
+                          final label = parts.length >= 3
+                              ? '${parts[2]}/${parts[1]}'
+                              : fecha;
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              label,
+                              style: TextStyle(
+                                color: ColmariaColors.textMuted,
+                                fontSize: 10,
+                              ),
                             ),
                           );
                         },
@@ -204,58 +279,81 @@ class MetricasPage extends ConsumerWidget {
                     leftTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
-                        reservedSize: 50,
+                        reservedSize: 56,
                         getTitlesWidget: (value, meta) {
                           return Text(
-                            '\$${(value / 1000).toStringAsFixed(0)}k',
+                            _formatAxisRD(value),
                             style: TextStyle(
                               color: ColmariaColors.textMuted,
-                              fontSize: 12,
+                              fontSize: 10,
                             ),
                           );
                         },
                       ),
                     ),
-                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  ),
-                  gridData: FlGridData(
-                    show: true,
-                    drawVerticalLine: false,
-                    horizontalInterval: 2000,
                   ),
                   borderData: FlBorderData(show: false),
-                  barGroups: data.asMap().entries.map((entry) {
-                    return BarChartGroupData(
-                      x: entry.key,
-                      barRods: [
-                        BarChartRodData(
-                          toY: (entry.value['ventas'] as int).toDouble(),
-                          color: ColmariaColors.primary,
-                          width: 24,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ],
-                    );
-                  }).toList(),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: ventasPorDia.asMap().entries.map((entry) {
+                        final item = entry.value as Map<String, dynamic>;
+                        final ventas =
+                            (item['ventas'] as num?)?.toDouble() ?? 0;
+                        return FlSpot(entry.key.toDouble(), ventas);
+                      }).toList(),
+                      isCurved: true,
+                      color: ColmariaColors.primary,
+                      barWidth: 3,
+                      isStrokeCapRound: true,
+                      dotData: FlDotData(
+                        show: ventasPorDia.length <= 31,
+                        getDotPainter: (spot, percent, barData, index) {
+                          return FlDotCirclePainter(
+                            radius: 3,
+                            color: ColmariaColors.primary,
+                            strokeWidth: 0,
+                          );
+                        },
+                      ),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        color: ColmariaColors.primary.withValues(alpha: 0.1),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            loading: () => const SizedBox(
-              height: 200,
-              child: Center(child: CircularProgressIndicator()),
-            ),
-            error: (_, __) => const SizedBox(
-              height: 200,
-              child: Center(child: Text('Error')),
-            ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildTopProducts(AsyncValue<List<Map<String, dynamic>>> dataAsync) {
+  /// Espaciado entre labels del eje X: mostrar aprox 7 labels máximo
+  double _bottomInterval(int totalDays) {
+    if (totalDays <= 7) return 1;
+    if (totalDays <= 14) return 2;
+    if (totalDays <= 31) return 5;
+    return 10;
+  }
+
+  /// Formato compacto para el eje Y: RD$ 1.2k, RD$ 15k, etc.
+  String _formatAxisRD(double value) {
+    if (value >= 1000000) {
+      return 'RD\$ ${(value / 1000000).toStringAsFixed(1)}M';
+    } else if (value >= 1000) {
+      return 'RD\$ ${(value / 1000).toStringAsFixed(1)}k';
+    }
+    return 'RD\$ ${value.toStringAsFixed(0)}';
+  }
+
+  // ══════════════════════════════════════════════════
+  //  FILA 3 — Top 10 Productos (DataTable)
+  // ══════════════════════════════════════════════════
+
+  Widget _buildTopProductos(Map<String, dynamic> data) {
+    final topProductos = data['topProductos'] as List<dynamic>? ?? [];
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -267,7 +365,7 @@ class MetricasPage extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Productos más vendidos',
+            'Top 10 productos más vendidos',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -275,51 +373,225 @@ class MetricasPage extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
-          dataAsync.when(
-            data: (data) => Column(
-              children: data.asMap().entries.map((entry) {
-                final producto = entry.value;
-                final maxCant = data.map((p) => p['cantidad'] as int).reduce((a, b) => a > b ? a : b);
-                final percent = (producto['cantidad'] as int) / maxCant;
-                
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            producto['nombre'] as String,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            '${producto['cantidad']}u',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: ColmariaColors.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      LinearProgressIndicator(
-                        value: percent,
-                        backgroundColor: ColmariaColors.background,
-                        valueColor: AlwaysStoppedAnimation(ColmariaColors.primary),
-                      ),
-                    ],
+          if (topProductos.isEmpty)
+            const SizedBox(
+              height: 80,
+              child: Center(child: Text('No hay datos')),
+            )
+          else
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                columnSpacing: 32,
+                headingRowColor: WidgetStateProperty.all(
+                  ColmariaColors.background,
+                ),
+                columns: const [
+                  DataColumn(
+                    label: Text(
+                      'Producto',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
                   ),
-                );
-              }).toList(),
+                  DataColumn(
+                    numeric: true,
+                    label: Text(
+                      'Unidades',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  DataColumn(
+                    numeric: true,
+                    label: Text(
+                      'Total RD\$',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+                rows: topProductos.take(10).map((item) {
+                  final p = item as Map<String, dynamic>;
+                  final nombre = p['nombre'] as String? ?? '-';
+                  final unidades = (p['unidades'] as num?)?.toInt() ?? 0;
+                  final total = (p['total'] as num?)?.toDouble() ?? 0;
+                  return DataRow(cells: [
+                    DataCell(Text(nombre)),
+                    DataCell(Text(unidades.toString())),
+                    DataCell(Text(formatRD(total))),
+                  ]);
+                }).toList(),
+              ),
             ),
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (_, __) => const Text('Error'),
+        ],
+      ),
+    );
+  }
+
+  // ══════════════════════════════════════════════════
+  //  FILA 4 — Rendimiento del Bot
+  // ══════════════════════════════════════════════════
+
+  Widget _buildRendimientoBot(Map<String, dynamic> data) {
+    final mensajesProcesados =
+        (data['mensajesProcesados'] as num?)?.toInt() ?? 0;
+    final ordenesGeneradas =
+        (data['ordenesGeneradas'] as num?)?.toInt() ?? 0;
+    final tasaConversion = mensajesProcesados > 0
+        ? (ordenesGeneradas / mensajesProcesados) * 100
+        : 0.0;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: ColmariaColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Rendimiento del bot',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: ColmariaColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              _buildBotStat(
+                icon: Icons.chat,
+                label: 'Mensajes procesados',
+                value: mensajesProcesados.toString(),
+                color: ColmariaColors.info,
+              ),
+              const SizedBox(width: 24),
+              _buildBotStat(
+                icon: Icons.receipt,
+                label: 'Órdenes generadas',
+                value: ordenesGeneradas.toString(),
+                color: ColmariaColors.primary,
+              ),
+              const SizedBox(width: 24),
+              _buildBotStat(
+                icon: Icons.trending_up,
+                label: 'Tasa de conversión',
+                value: '${tasaConversion.toStringAsFixed(1)}%',
+                color: ColmariaColors.warning,
+              ),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBotStat({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Expanded(
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: ColmariaColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: ColmariaColors.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ══════════════════════════════════════════════════
+  //  ESTADOS: Loading / Error
+  // ══════════════════════════════════════════════════
+
+  Widget _buildLoading() {
+    return Column(
+      children: [
+        _buildLoadingRow(),
+        const SizedBox(height: 24),
+        _buildLoadingCard(height: 250),
+        const SizedBox(height: 24),
+        _buildLoadingCard(height: 200),
+        const SizedBox(height: 24),
+        _buildLoadingCard(height: 120),
+      ],
+    );
+  }
+
+  Widget _buildLoadingRow() {
+    return Row(
+      children: List.generate(
+        4,
+        (index) => Expanded(
+          child: Container(
+            margin: EdgeInsets.only(right: index < 3 ? 16 : 0),
+            height: 120,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: ColmariaColors.divider),
+            ),
+            child: const Center(
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingCard({required double height}) {
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: ColmariaColors.divider),
+      ),
+      child: const Center(
+        child: CircularProgressIndicator(strokeWidth: 2),
+      ),
+    );
+  }
+
+  Widget _buildError() {
+    return SizedBox(
+      height: 400,
+      child: EmptyState(
+        icon: Icons.error_outline,
+        title: 'Error al cargar métricas',
+        subtitle: 'Intenta de nuevo más tarde o verifica tu conexión.',
       ),
     );
   }
