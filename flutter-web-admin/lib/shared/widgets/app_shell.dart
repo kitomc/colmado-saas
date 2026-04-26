@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:convex_flutter/convex_flutter.dart';
 
 import '../../app/theme.dart';
 
@@ -16,8 +15,13 @@ final whatsappConectadoProvider = Provider<bool>((ref) {
 
 class AppShell extends ConsumerWidget {
   final Widget child;
+  final Function(bool)? onAuthStateChanged;
 
-  const AppShell({super.key, required this.child});
+  const AppShell({
+    super.key,
+    required this.child,
+    this.onAuthStateChanged,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -150,6 +154,15 @@ class AppShell extends ConsumerWidget {
                                 ),
                               ],
                             ),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.logout, color: Colors.white70, size: 18),
+                            onPressed: () async {
+                              // Logout local simulado
+                              await Future.delayed(const Duration(milliseconds: 300));
+                              onAuthStateChanged?.call(false);
+                            },
+                            tooltip: 'Cerrar sesión',
                           ),
                         ],
                       ),

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/auth/login_page.dart';
 import '../features/dashboard/dashboard_page.dart';
@@ -12,53 +11,40 @@ import '../features/metricas/metricas_page.dart';
 import '../features/configuracion/configuracion_page.dart';
 import '../shared/widgets/app_shell.dart';
 
-final routerProvider = Provider<GoRouter>((ref) {
+GoRouter createRouter(bool isAuthenticated, Function(bool) onAuthStateChanged) {
   return GoRouter(
-    initialLocation: '/login',
+    initialLocation: isAuthenticated ? '/dashboard' : '/login',
     routes: [
-      // Login - sin shell
       GoRoute(
         path: '/login',
-        builder: (context, state) => const LoginPage(),
+        builder: (context, state) => LoginPage(
+          onAuthStateChanged: onAuthStateChanged,
+        ),
       ),
-      // Dashboard - con shell
       ShellRoute(
-        builder: (context, state, child) => AppShell(child: child),
+        builder: (context, state, child) => AppShell(
+          child: child,
+          onAuthStateChanged: onAuthStateChanged,
+        ),
         routes: [
-          GoRoute(
-            path: '/dashboard',
-            builder: (context, state) => const DashboardPage(),
-          ),
-          GoRoute(
-            path: '/productos',
-            builder: (context, state) => const ProductosPage(),
-          ),
-          GoRoute(
-            path: '/pedidos',
-            builder: (context, state) => const PedidosPage(),
-          ),
-          GoRoute(
-            path: '/whatsapp',
-            builder: (context, state) => const WhatsAppPage(),
-          ),
-          GoRoute(
-            path: '/clientes',
-            builder: (context, state) => const ClientesPage(),
-          ),
-          GoRoute(
-            path: '/metricas',
-            builder: (context, state) => const MetricasPage(),
-          ),
-          GoRoute(
-            path: '/configuracion',
-            builder: (context, state) => const ConfiguracionPage(),
-          ),
+          GoRoute(path: '/dashboard', builder: (context, state) => const DashboardPage()),
+          GoRoute(path: '/productos', builder: (context, state) => const ProductosPage()),
+          GoRoute(path: '/pedidos', builder: (context, state) => const PedidosPage()),
+          GoRoute(path: '/whatsapp', builder: (context, state) => const WhatsAppPage()),
+          GoRoute(path: '/clientes', builder: (context, state) => const ClientesPage()),
+          GoRoute(path: '/metricas', builder: (context, state) => const MetricasPage()),
+          GoRoute(path: '/configuracion', builder: (context, state) => const ConfiguracionPage()),
         ],
       ),
     ],
     redirect: (context, state) {
-      // TODO: Check auth state
+      if (!isAuthenticated && state.uri.toString() != '/login') {
+        return '/login';
+      }
+      if (isAuthenticated && state.uri.toString() == '/login') {
+        return '/dashboard';
+      }
       return null;
     },
   );
-});
+}
