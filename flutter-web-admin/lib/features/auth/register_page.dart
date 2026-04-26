@@ -158,10 +158,10 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
       await client.mutation(
         name: 'usuarios:registrar',
         args: {
-          'name': _nameController.text.trim(),
+          'nombre': _nameController.text.trim(),
           'email': _emailController.text.trim(),
-          'colmadoName': _colmadoNameController.text.trim(),
-          'phone': _phoneController.text.trim(),
+          'nombre_colmado': _colmadoNameController.text.trim(),
+          'telefono': _phoneController.text.trim(),
         },
       );
 

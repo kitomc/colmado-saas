@@ -1,0 +1,2 @@
+Server URL: http://localhost:8080
+API Key Global: colmado-api-2026-xyz

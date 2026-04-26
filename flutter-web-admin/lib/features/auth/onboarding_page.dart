@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/theme.dart';
 import '../../shared/widgets/boton_primario.dart';
 import '../../shared/widgets/boton_secundario.dart';
+import '../../shared/providers/auth_provider.dart';
 import '../../shared/providers/convex_providers.dart';
 
 // --------------------------------------------------------
@@ -49,6 +50,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   String? _qrBase64;
   Timer? _qrPollTimer;
   String? _whatsappError;
+
+  // ───── Estado de instancia Evolution ─────
+  String? _instanceName;
 
   // ───── Step 4: Flags ─────
   bool _isCompleting = false;
@@ -129,9 +133,18 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
 
       if (productsData.isNotEmpty) {
         final client = ref.read(convexClientProvider);
-        await client.mutation(name: 'productos:crearLote', args: {
-          'products': productsData,
-        });
+        final colmadoId = ref.read(authProvider).colmadoId;
+        if (colmadoId == null) {
+          throw Exception('colmadoId no disponible');
+        }
+        for (final p in productsData) {
+          await client.mutation(name: 'productos:crearProducto', args: {
+            'colmadoId': colmadoId,
+            'nombre': p['name'] as String,
+            'precio': p['price'] as double,
+            'categoria': p['category'] as String? ?? 'Otros',
+          });
+        }
       }
 
       if (mounted) _nextStep();
@@ -160,7 +173,22 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
 
     try {
       final client = ref.read(convexClientProvider);
-      final result = await client.action(name: 'evolution:crearInstancia', args: {});
+      final colmadoId = ref.read(authProvider).colmadoId;
+      if (colmadoId == null) {
+        setState(() {
+          _whatsappError = 'colmadoId no disponible. Intentá de nuevo.';
+          _whatsappLoading = false;
+        });
+        return;
+      }
+      // Generar instanceName único a partir del colmadoId
+      final instanceName = 'colmado_${colmadoId.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
+      _instanceName = instanceName;
+
+      final result = await client.action(name: 'evolution:crearInstancia', args: {
+        'colmadoId': colmadoId,
+        'instanceName': instanceName,
+      });
 
       final decoded = jsonDecode(result) as Map<String, dynamic>;
 
@@ -201,8 +229,11 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       }
 
       try {
+        if (_instanceName == null) return;
         final client = ref.read(convexClientProvider);
-        final result = await client.query('evolution:verificarEstado', {});
+        final result = await client.action(name: 'evolution:verificarEstado', args: {
+          'instanceName': _instanceName!,
+        });
         final decoded = jsonDecode(result) as Map<String, dynamic>;
 
         if (decoded['status'] == 'connected' || decoded['connected'] == true) {
@@ -237,17 +268,15 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
 
     try {
       final client = ref.read(convexClientProvider);
-
-      // Guardar dirección si se completó
-      final address = _addressController.text.trim();
-      if (address.isNotEmpty) {
-        await client.mutation(name: 'colmados:actualizarDireccion', args: {
-          'address': address,
-        });
+      final colmadoId = ref.read(authProvider).colmadoId;
+      if (colmadoId == null) {
+        throw Exception('colmadoId no disponible');
       }
 
       // Marcar onboarding como completado
-      await client.mutation(name: 'usuarios:marcarOnboardingCompleto', args: {});
+      await client.mutation(name: 'colmados:marcarOnboardingCompleto', args: {
+        'colmadoId': colmadoId,
+      });
 
       if (mounted) {
         context.go('/dashboard');

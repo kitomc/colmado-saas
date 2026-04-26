@@ -29,13 +29,19 @@ final usuarioActualProvider = FutureProvider<Map<String, dynamic>?>((ref) async 
 // subscribe() en v3 retorna Future<SubscriptionHandle>, no un Stream
 final productosProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   final controller = StreamController<List<Map<String, dynamic>>>();
+  final colmadoId = ref.watch(authProvider).colmadoId;
+
+  if (colmadoId == null) {
+    controller.close();
+    return controller.stream;
+  }
 
   Future.microtask(() async {
     final client = ref.read(convexClientProvider);
     try {
       await client.subscribe(
         name: "productos:listByColmado",
-        args: <String, dynamic>{},
+        args: <String, dynamic>{"colmado_id": colmadoId},
         onUpdate: (data) {
           final list = jsonDecode(data);
           if (list is List) {
@@ -59,12 +65,19 @@ final productosProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
 final pedidosProvider = StreamProvider.family<List<Map<String, dynamic>>, String>(
   (ref, estado) {
     final controller = StreamController<List<Map<String, dynamic>>>();
+    final colmadoId = ref.watch(authProvider).colmadoId;
+
+    if (colmadoId == null) {
+      controller.close();
+      return controller.stream;
+    }
+
     Future.microtask(() async {
       final client = ref.read(convexClientProvider);
       try {
         await client.subscribe(
           name: "ordenes:listByEstado",
-          args: <String, dynamic>{"estado": estado},
+          args: <String, dynamic>{"colmado_id": colmadoId, "estado": estado},
           onUpdate: (data) {
             final list = jsonDecode(data);
             if (list is List) {
@@ -85,12 +98,19 @@ final pedidosProvider = StreamProvider.family<List<Map<String, dynamic>>, String
 // Provider de clientes del colmado (reactivo)
 final clientesProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   final controller = StreamController<List<Map<String, dynamic>>>();
+  final colmadoId = ref.watch(authProvider).colmadoId;
+
+  if (colmadoId == null) {
+    controller.close();
+    return controller.stream;
+  }
+
   Future.microtask(() async {
     final client = ref.read(convexClientProvider);
     try {
       await client.subscribe(
         name: "clientes:listByColmado",
-        args: <String, dynamic>{},
+        args: <String, dynamic>{"colmado_id": colmadoId},
         onUpdate: (data) {
           final list = jsonDecode(data);
           if (list is List) {
@@ -116,9 +136,13 @@ class DateRange {
 
 final metricasProvider = FutureProvider.family<Map<String, dynamic>, DateRange>(
   (ref, range) async {
+    final colmadoId = ref.watch(authProvider).colmadoId;
+    if (colmadoId == null) return <String, dynamic>{};
+
     final client = ref.read(convexClientProvider);
     try {
       final result = await client.query("ordenes:getMetricas", <String, dynamic>{
+        "colmado_id": colmadoId,
         "desde": range.start.millisecondsSinceEpoch,
         "hasta": range.end.millisecondsSinceEpoch,
       });
