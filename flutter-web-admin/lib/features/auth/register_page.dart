@@ -96,64 +96,14 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
     });
 
     try {
-      // 1. SignUp via HTTP
-      const baseUrl = 'https://different-hare-762.convex.cloud';
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/auth/signin/password'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'flow': 'signUp',
-          'email': _emailController.text.trim(),
-          'password': _passwordController.text,
-          'name': _nameController.text.trim(),
-        }),
+      // 1. SignUp via Convex action
+      final tokens = await ref.read(authServiceProvider).signUp(
+        _emailController.text.trim(),
+        _passwordController.text,
+        _nameController.text.trim(),
       );
 
-      if (response.statusCode != 200) {
-        final data = jsonDecode(response.body);
-        final code = data['code'] as String? ?? 'Unknown';
-        String message;
-        switch (code) {
-          case 'AccountAlreadyExists':
-            message = 'Ya existe una cuenta con este correo';
-            break;
-          default:
-            message = 'Error al crear la cuenta';
-        }
-        setState(() {
-          _isLoading = false;
-          _errorMessage = message;
-        });
-        return;
-      }
-
-      final data = jsonDecode(response.body);
-      final tokens = data['tokens'];
-      if (tokens == null) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'Respuesta inválida del servidor';
-        });
-        return;
-      }
-
-      final jwt = tokens['token'] as String?;
-      final refreshToken = tokens['refreshToken'] as String?;
-      if (jwt == null || refreshToken == null) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'Respuesta inválida del servidor';
-        });
-        return;
-      }
-
-      // 2. Guardar tokens localmente
-      await ref.read(authServiceProvider).saveTokens(jwt, refreshToken);
-
-      // 3. Set auth en ConvexClient
-      await ConvexClient.instance.setAuth(token: jwt);
-
-      // 4. Llamar mutation usuarios:registrar
+      // 2. Llamar mutation usuarios:registrar
       final client = ref.read(convexClientProvider);
       await client.mutation(
         name: 'usuarios:registrar',
@@ -320,7 +270,8 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
   Widget _buildStep1() {
     return Form(
       key: _formKeyStep1,
-      child: Column(
+      child: SingleChildScrollView(
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -424,6 +375,7 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
           _buildRegisterFooter(),
         ],
       ),
+      ),
     );
   }
 
@@ -431,7 +383,8 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
   Widget _buildStep2() {
     return Form(
       key: _formKeyStep2,
-      child: Column(
+      child: SingleChildScrollView(
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -519,13 +472,15 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
           _buildRegisterFooter(),
         ],
       ),
+      ),
     );
   }
 
   // ───── Footer compartido ─────
   Widget _buildRegisterFooter() {
     return Center(
-      child: Row(
+      child: FittedBox(
+        child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
@@ -549,6 +504,7 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

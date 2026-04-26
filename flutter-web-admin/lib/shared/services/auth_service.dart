@@ -1,11 +1,10 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:convex_flutter/convex_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// AuthService para Convex Auth
-/// Maneja login, logout, refresh tokens y persistencia
+/// AuthService para Convex Auth v0.0.91
+/// Usa Convex actions (NO HTTP) — signIn y signOut son actions de Convex
 class AuthService {
-  static const String _baseUrl = 'https://different-hare-762.convex.cloud';
   static const String _tokenKey = 'colmaria_jwt';
   static const String _refreshKey = 'colmaria_refresh';
 
@@ -39,113 +38,106 @@ class AuthService {
   Future<String?> refreshJwt() async {
     final refreshToken = await getSavedRefresh();
     if (refreshToken == null) return null;
-
     try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/api/auth/token'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'refreshToken': refreshToken}),
+      // Usar setAuthWithRefresh de convex_flutter para refresh automático
+      final handle = await ConvexClient.instance.setAuthWithRefresh(
+        refreshToken: refreshToken,
+        onTokenRefresh: (token) async {
+          await saveTokens(token, refreshToken);
+        },
       );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final tokens = data['tokens'];
-        if (tokens != null) {
-          final newJwt = tokens['token'] as String?;
-          final newRefresh = tokens['refreshToken'] as String?;
-          
-          if (newJwt != null && newRefresh != null) {
-            await saveTokens(newJwt, newRefresh);
-            return newJwt;
-          }
-        }
+      if (handle.authenticated) {
+        return handle.token;
       }
     } catch (e) {
-      // Network error - return null
+      await clearTokens();
     }
-    
-    // Si falló, limpiar tokens
-    await clearTokens();
     return null;
   }
 
-  /// Login con email y password
+  /// Login con email y password vía Convex action
   /// Retorna {jwt, refreshToken} o lanza AuthException
   Future<Map<String, String>> signIn(String email, String password) async {
     try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/api/auth/signin/password'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'flow': 'signIn',
-          'email': email,
-          'password': password,
-        }),
+      final result = await ConvexClient.instance.action(
+        name: 'auth:signIn',
+        args: {
+          'provider': 'password',
+          'params': {'email': email, 'password': password, 'flow': 'signIn'},
+        },
       );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final tokens = data['tokens'];
-        
-        if (tokens != null) {
-          final jwt = tokens['token'] as String?;
-          final refreshToken = tokens['refreshToken'] as String?;
-          
-          if (jwt != null && refreshToken != null) {
-            await saveTokens(jwt, refreshToken);
-            return {'jwt': jwt, 'refreshToken': refreshToken};
-          }
+      final data = jsonDecode(result) as Map<String, dynamic>;
+      final tokens = data['tokens'] as Map<String, dynamic>?;
+      if (tokens != null) {
+        final jwt = tokens['token'] as String?;
+        final refreshToken = tokens['refreshToken'] as String?;
+        if (jwt != null && refreshToken != null) {
+          await saveTokens(jwt, refreshToken);
+          await ConvexClient.instance.setAuth(token: jwt);
+          return {'jwt': jwt, 'refreshToken': refreshToken};
         }
-        
-        // Respuesta inesperada
-        throw AuthException('InvalidResponse');
-      } else if (response.statusCode == 400 || response.statusCode == 401) {
-        final data = jsonDecode(response.body);
-        final code = data['code'] as String? ?? 'Unknown';
-        
-        switch (code) {
-          case 'InvalidCredentials':
-          case 'INVALID_CREDENTIALS':
-            throw AuthException('InvalidCredentials');
-          case 'AccountNotFound':
-          case 'ACCOUNT_NOT_FOUND':
-            throw AuthException('AccountNotFound');
-          default:
-            throw AuthException(code);
-        }
-      } else {
-        throw AuthException('ServerError');
       }
+      throw AuthException('InvalidResponse');
+    } on AuthException {
+      rethrow;
     } catch (e) {
-      if (e is AuthException) rethrow;
+      final msg = e.toString();
+      if (msg.contains('InvalidCredentials') || msg.contains('invalid credentials')) {
+        throw AuthException('InvalidCredentials');
+      }
+      if (msg.contains('AccountNotFound') || msg.contains('account not found')) {
+        throw AuthException('AccountNotFound');
+      }
       throw AuthException('NetworkError');
     }
   }
 
-  /// Logout: llama al endpoint y borra tokens locales
-  Future<void> signOut(String jwt) async {
+  /// Registro vía Convex action
+  Future<Map<String, String>> signUp(String email, String password, String name) async {
     try {
-      await http.post(
-        Uri.parse('$_baseUrl/api/auth/signout'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $jwt',
+      final result = await ConvexClient.instance.action(
+        name: 'auth:signIn',
+        args: {
+          'provider': 'password',
+          'params': {'email': email, 'password': password, 'flow': 'signUp', 'name': name},
         },
-        body: jsonEncode({}),
       );
+      final data = jsonDecode(result) as Map<String, dynamic>;
+      final tokens = data['tokens'] as Map<String, dynamic>?;
+      if (tokens != null) {
+        final jwt = tokens['token'] as String?;
+        final refreshToken = tokens['refreshToken'] as String?;
+        if (jwt != null && refreshToken != null) {
+          await saveTokens(jwt, refreshToken);
+          await ConvexClient.instance.setAuth(token: jwt);
+          return {'jwt': jwt, 'refreshToken': refreshToken};
+        }
+      }
+      throw AuthException('InvalidResponse');
+    } on AuthException {
+      rethrow;
     } catch (e) {
-      // Ignorar errores de red en logout
-    } finally {
-      await clearTokens();
+      final msg = e.toString();
+      if (msg.contains('AccountAlreadyExists') || msg.contains('account already exists')) {
+        throw AuthException('AccountAlreadyExists');
+      }
+      throw AuthException('NetworkError');
     }
+  }
+
+  /// Logout: llama action de Convex y borra tokens
+  Future<void> signOut() async {
+    try {
+      await ConvexClient.instance.action(name: 'auth:signOut', args: {});
+    } catch (_) {}
+    await ConvexClient.instance.clearAuth();
+    await clearTokens();
   }
 
   /// Verifica si hay una sesión activa
   Future<bool> hasActiveSession() async {
     final jwt = await getSavedJwt();
     if (jwt == null) return false;
-    
-    // Intentar refresh si el JWT parece expirado
     final newJwt = await refreshJwt();
     return newJwt != null;
   }
