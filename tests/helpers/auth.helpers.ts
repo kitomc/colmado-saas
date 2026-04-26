@@ -1,8 +1,11 @@
 import { Page, expect } from '@playwright/test';
 
 export async function waitForFlutterApp(page: Page) {
-  await page.waitForSelector('flt-glass-pane', { timeout: 20_000 });
-  await page.waitForTimeout(1500);
+  // Esperar que Flutter renderice — primero el DOM, después el canvas
+  // Flutter Web CanvasKit mode: esperar que el elemento raíz exista
+  await page.waitForSelector('flt-glass-pane', { state: 'attached', timeout: 30_000 });
+  // Dar tiempo a Flutter para renderizar el canvas
+  await page.waitForTimeout(3000);
 }
 
 export async function fillFlutterInput(page: Page, label: string, value: string) {

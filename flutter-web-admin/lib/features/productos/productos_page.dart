@@ -3,7 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme.dart';
 import '../../shared/widgets/empty_state.dart';
-import '../../shared/providers/convex_providers.dart';
+
+/// Placeholder provider until Convex queries are implemented
+final _mockProductosProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  return [];
+});
 
 /// Provider for categorías (mock — Convex query pending)
 final categoriasProvider = FutureProvider<List<String>>((ref) async {
@@ -16,7 +20,7 @@ class ProductosPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final productosAsync = ref.watch(productosProvider);
+    final productosAsync = ref.watch(_mockProductosProvider);
 
     return Scaffold(
       backgroundColor: ColmariaColors.background,
@@ -238,7 +242,7 @@ class ProductosPage extends ConsumerWidget {
       ),
     );
     // Refresh the list
-    ref.invalidate(productosProvider);
+    ref.invalidate(_mockProductosProvider);
   }
 
   void _showFilterDialog(BuildContext context, WidgetRef ref) {
@@ -348,7 +352,7 @@ class ProductosPage extends ConsumerWidget {
               onPressed: () {
                 // TODO: Call Convex mutation
                 Navigator.pop(context);
-                ref.invalidate(productosProvider);
+                ref.invalidate(_mockProductosProvider);
               },
               child: Text(isEdit ? 'Guardar' : 'Crear'),
             ),
@@ -382,7 +386,7 @@ class ProductosPage extends ConsumerWidget {
             onPressed: () {
               // TODO: Call Convex mutation
               Navigator.pop(context);
-              ref.invalidate(productosProvider);
+              ref.invalidate(_mockProductosProvider);
             },
             child: const Text('Eliminar'),
           ),

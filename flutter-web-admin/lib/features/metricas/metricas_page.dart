@@ -5,41 +5,22 @@ import 'package:fl_chart/fl_chart.dart';
 import '../../app/theme.dart';
 import '../../shared/widgets/kpi_card.dart';
 import '../../shared/widgets/empty_state.dart';
-import '../../shared/providers/convex_providers.dart';
 import '../../shared/utils/formatters.dart';
 
 /// Opciones de rango de fechas para las métricas
-enum RangoMetricas { siete, treinta, noventa }
+enum RangoMetricas {
+  siete('7 días'),
+  treinta('30 días'),
+  noventa('90 días');
 
-extension on RangoMetricas {
-  String get label {
-    switch (this) {
-      case RangoMetricas.siete:
-        return '7 días';
-      case RangoMetricas.treinta:
-        return '30 días';
-      case RangoMetricas.noventa:
-        return '90 días';
-    }
-  }
-
-  int get dias {
-    switch (this) {
-      case RangoMetricas.siete:
-        return 7;
-      case RangoMetricas.treinta:
-        return 30;
-      case RangoMetricas.noventa:
-        return 90;
-    }
-  }
-
-  DateRange toDateRange() {
-    final end = DateTime.now();
-    final start = end.subtract(Duration(days: dias));
-    return DateRange(start: start, end: end);
-  }
+  final String label;
+  const RangoMetricas(this.label);
 }
+
+/// Placeholder provider until Convex queries are implemented
+final _mockMetricasProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  return {};
+});
 
 class MetricasPage extends ConsumerStatefulWidget {
   const MetricasPage({super.key});
@@ -53,8 +34,8 @@ class _MetricasPageState extends ConsumerState<MetricasPage> {
 
   @override
   Widget build(BuildContext context) {
-    final dateRange = _rangoSeleccionado.toDateRange();
-    final metricasAsync = ref.watch(metricasProvider(dateRange));
+    // TODO: Usar _rangoSeleccionado para filtrar cuando el provider real esté implementado
+    final metricasAsync = ref.watch(_mockMetricasProvider);
 
     return Scaffold(
       backgroundColor: ColmariaColors.background,

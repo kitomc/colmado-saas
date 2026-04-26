@@ -1,21 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:convex_flutter/convex_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app/theme.dart';
 import 'app/router.dart';
+import 'services/convex_http_client.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Inicializar Convex Client
-  await ConvexClient.initialize(
-    const ConvexConfig(
-      deploymentUrl: 'https://different-hare-762.convex.cloud',
-      clientId: 'colmaria-web-admin',
-    ),
-  );
-
+  await SharedPreferences.getInstance();
   runApp(
     const ProviderScope(
       child: ColmariaApp(),
@@ -28,8 +21,6 @@ class ColmariaApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // El router usa el authProvider automáticamente
-    // No necesitamos inicializar auth aquí - el router lo hace en /splash
     return MaterialApp.router(
       title: 'COLMARIA Web Admin',
       theme: ColmariaTheme.theme,

@@ -6,7 +6,13 @@ import 'package:timeago/timeago.dart' as timeago;
 import '../../app/theme.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/estado_chip.dart';
-import '../../shared/providers/convex_providers.dart';
+
+/// Placeholder provider until Convex queries are implemented
+final _mockPedidosProvider = FutureProvider.family<List<Map<String, dynamic>>, String>(
+  (ref, filter) async {
+    return [];
+  },
+);
 
 /// Helper to get current tab value
 String tabValueFromIndex(int index) {
@@ -53,7 +59,7 @@ class PedidosPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentTab = ref.watch(pedidosTabProvider);
     final tabValue = tabValueFromIndex(currentTab);
-    final ordersAsync = ref.watch(pedidosProvider(tabValue));
+    final ordersAsync = ref.watch(_mockPedidosProvider(tabValue));
 
     return DefaultTabController(
       length: 4,
@@ -77,7 +83,7 @@ class PedidosPage extends ConsumerWidget {
                   ),
                   const Spacer(),
                   IconButton(
-                    onPressed: () => ref.invalidate(pedidosProvider(tabValue)),
+                    onPressed: () => ref.invalidate(_mockPedidosProvider(tabValue)),
                     icon: const Icon(Icons.refresh),
                     tooltip: 'Actualizar',
                   ),

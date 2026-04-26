@@ -3,10 +3,9 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:convex_flutter/convex_flutter.dart';
 
 import '../../app/theme.dart';
-import '../../shared/providers/auth_provider.dart';
+import '../../shared/providers/convex_providers.dart';
 import '../../shared/widgets/boton_primario.dart';
 import '../../shared/widgets/boton_secundario.dart';
 import '../../shared/widgets/estado_chip.dart';
@@ -53,16 +52,16 @@ class _WhatsAppPageState extends ConsumerState<WhatsAppPage> {
 
   // ── Acciones Convex ─────────────────────────────────────────────────────
 
-  String? get _colmadoId => ref.read(authProvider).colmadoId;
+  // TODO: Obtener colmadoId real desde query o auth flow
+  String? get _colmadoId => 'col_placeholder';
 
   Future<Map<String, dynamic>> _callAction(
-    String name,
+    String actionName,
     Map<String, dynamic> args,
   ) async {
-    final client = ConvexClient.instance;
-    // El auth token ya se seteó vía setAuth() en el login
-    final raw = await client.action(name: name, args: args);
-    return jsonDecode(raw) as Map<String, dynamic>;
+    final client = ref.read(convexClientProvider);
+    final result = await client.action(actionName, args);
+    return result as Map<String, dynamic>;
   }
 
   // ── Generar QR ──────────────────────────────────────────────────────────

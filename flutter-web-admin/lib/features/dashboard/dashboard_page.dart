@@ -7,8 +7,6 @@ import '../../app/theme.dart';
 import '../../shared/widgets/kpi_card.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/estado_chip.dart';
-import '../../shared/providers/convex_providers.dart';
-
 /// Provider for last 7 days sales
 final last7DaysSalesProvider = FutureProvider<List<FlSpot>>((ref) async {
   // TODO: Connect to Convex query
@@ -23,18 +21,28 @@ final last7DaysSalesProvider = FutureProvider<List<FlSpot>>((ref) async {
   ];
 });
 
+/// Placeholder provider until Convex queries are implemented
+final _mockMetricsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  return {
+    'pedidos_hoy': 0,
+    'ventas_hoy': 0.0,
+    'clientes_activos': 0,
+    'mensajes_hoy': 0,
+  };
+});
+
+/// Placeholder provider until Convex queries are implemented
+final _mockOrdersProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  return [];
+});
+
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final today = DateTime.now();
-    final todayRange = DateRange(
-      start: DateTime(today.year, today.month, today.day),
-      end: today,
-    );
-    final metricsAsync = ref.watch(metricasProvider(todayRange));
-    final ordersAsync = ref.watch(pedidosProvider('todos'));
+    final metricsAsync = ref.watch(_mockMetricsProvider);
+    final ordersAsync = ref.watch(_mockOrdersProvider);
 
     return Scaffold(
       backgroundColor: ColmariaColors.background,

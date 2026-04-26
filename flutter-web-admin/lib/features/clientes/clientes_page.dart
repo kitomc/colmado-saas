@@ -4,7 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
 import '../../shared/widgets/empty_state.dart';
-import '../../shared/providers/convex_providers.dart';
+
+/// Placeholder provider until Convex queries are implemented
+final _mockClientesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  return [];
+});
 
 /// Search query provider
 final clientesSearchProvider = StateProvider<String>((ref) => '');
@@ -15,7 +19,7 @@ class ClientesPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final searchQuery = ref.watch(clientesSearchProvider);
-    final clientesAsync = ref.watch(clientesProvider);
+    final clientesAsync = ref.watch(_mockClientesProvider);
 
     return Scaffold(
       backgroundColor: ColmariaColors.background,

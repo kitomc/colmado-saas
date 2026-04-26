@@ -1,11 +1,7 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
-import 'package:convex_flutter/convex_flutter.dart';
-
 import '../../app/theme.dart';
 import '../../shared/widgets/boton_primario.dart';
 import '../../shared/providers/auth_provider.dart';
@@ -105,15 +101,12 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
 
       // 2. Llamar mutation usuarios:registrar
       final client = ref.read(convexClientProvider);
-      await client.mutation(
-        name: 'usuarios:registrar',
-        args: {
-          'nombre': _nameController.text.trim(),
-          'email': _emailController.text.trim(),
-          'nombre_colmado': _colmadoNameController.text.trim(),
-          'telefono': _phoneController.text.trim(),
-        },
-      );
+      await client.mutation('usuarios:registrar', {
+        'nombre': _nameController.text.trim(),
+        'email': _emailController.text.trim(),
+        'nombre_colmado': _colmadoNameController.text.trim(),
+        'telefono': _phoneController.text.trim(),
+      });
 
       // 5. Inicializar estado de auth
       await ref.read(authProvider.notifier).initialize();

@@ -8,6 +8,12 @@ export default defineConfig({
   retries: 1,
   workers: 1,
   reporter: 'html',
+  webServer: {
+    command: 'cd flutter-web-admin && flutter run -d web-server --web-port 5173',
+    port: 5173,
+    timeout: 120_000,
+    reuseExistingServer: true,
+  },
   use: {
     baseURL: 'http://localhost:5173',
     actionTimeout: 15_000,
