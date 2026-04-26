@@ -3,15 +3,21 @@ import { v } from "convex/values";
 
 export default defineSchema({
   // Nano 1.1 - Tabla colmados
+  // ACTUALIZADO: campos Embedded Signup de Meta
   colmados: defineTable({
     nombre: v.string(),
-    telefono_whatsapp: v.string(),
-    whatsapp_phone_id: v.string(), // Bug #B: Phone ID por colmado
+    telefono_whatsapp: v.string(),        // Número visible: +18091234567
+    whatsapp_phone_id: v.string(),        // Phone Number ID de Meta
+    whatsapp_token: v.string(),           // Token del System User (permanente)
+    waba_id: v.optional(v.string()),      // WhatsApp Business Account ID
+    meta_conectado: v.optional(v.boolean()), // true = conectado via Embedded Signup
+    meta_connected_at: v.optional(v.number()), // timestamp de conexión
     telegram_chat_id: v.optional(v.string()),
-    whatsapp_token: v.string(),
     activo: v.boolean(),
     created_at: v.number(),
-  }),
+  })
+    .index("by_telefono_whatsapp", ["telefono_whatsapp"])
+    .index("by_waba_id", ["waba_id"]),
 
   // Nano 1.2 - Tabla productos
   productos: defineTable({

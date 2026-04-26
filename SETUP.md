@@ -43,10 +43,9 @@ npx convex ai-files install
 
 ```bash
 # Iniciar servidor Convex en modo watch (dev)
-# Esto despliega en tu proyecto dev y escucha cambios en tiempo real
 npx convex dev
 
-# Solo verificar tipos TypeScript sin compilar (cero errores antes de commit)
+# Solo verificar tipos TypeScript sin compilar
 npx tsc --noEmit
 
 # Ver los logs en tiempo real del backend Convex
@@ -56,10 +55,6 @@ npx convex logs
 ### Deploy a producción
 
 ```bash
-# Deploy de todas las funciones Convex a producción
-npx convex deploy
-
-# Deploy con confirmación explícita (recomendado)
 npx convex deploy --prod
 ```
 
@@ -69,11 +64,18 @@ npx convex deploy --prod
 # Ver todas las variables configuradas
 npx convex env list
 
-# Configurar variables (reemplaza los valores con los reales)
+# ── LLM ──────────────────────────────────────────────────────────
 npx convex env set GROQ_API_KEY "gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-npx convex env set WHATSAPP_TOKEN "EAAxxxxxxxxxxxxxxxxxxxxxxxx"
-npx convex env set WHATSAPP_PHONE_ID "1234567890"
-npx convex env set WHATSAPP_VERIFY_TOKEN "tu_token_secreto_de_verificacion"
+
+# ── Meta / WhatsApp ───────────────────────────────────────────────
+npx convex env set META_APP_ID "123456789012345"
+npx convex env set META_APP_SECRET "tu_app_secret_aqui"
+npx convex env set WHATSAPP_VERIFY_TOKEN "colmaria_verify_secreto"
+
+# ── Convex Site URL (para el webhook) ─────────────────────────────
+npx convex env set CONVEX_SITE_URL "https://tu-proyecto.convex.site"
+
+# ── Telegram (opcional) ───────────────────────────────────────────
 npx convex env set TELEGRAM_BOT_TOKEN "123456789:AAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 # Eliminar una variable
@@ -83,16 +85,9 @@ npx convex env remove NOMBRE_VARIABLE
 ### Utilidades Convex
 
 ```bash
-# Ver el schema actual desplegado
 npx convex schema
-
-# Abrir el Dashboard de Convex en el browser
 npx convex dashboard
-
-# Ejecutar una función manualmente (para testing)
 npx convex run productos:getProductosActivos '{"colmadoId": "id_aqui"}'
-
-# Ver todas las funciones disponibles
 npx convex functions
 ```
 
@@ -100,84 +95,85 @@ npx convex functions
 
 ## ☁️ CLOUDFLARE WRANGLER CLI — Comandos esenciales
 
-### Setup inicial (primera vez)
+### Setup inicial
 
 ```bash
-# Iniciar sesión en Cloudflare (abre el browser)
 wrangler login
-
-# Verificar que estás autenticado
 wrangler whoami
 ```
 
 ### Worker de WhatsApp Relay
 
 ```bash
-# Entrar al directorio del Worker
 cd workers/
-
-# Desarrollo local del Worker (con hot reload)
-wrangler dev whatsapp-relay/index.js
-
-# Desarrollo con acceso público (para probar webhook de Meta)
 wrangler dev whatsapp-relay/index.js --remote
 ```
 
 ### Variables secretas del Worker
 
 ```bash
-# Configurar secrets en el Worker (no quedan en el código)
 wrangler secret put CONVEX_URL
-# → ingresa: https://tu-proyecto.convex.cloud
-
 wrangler secret put VERIFY_TOKEN
-# → ingresa: tu_token_secreto_de_verificacion
-
 wrangler secret put WHATSAPP_TOKEN
-# → ingresa: EAAxxxxxxxxxxxxxxxxxxxxxxxx
-
-# Ver los secrets configurados (solo nombres, no valores)
 wrangler secret list
 ```
 
-### Deploy del Worker
+### Deploy
 
 ```bash
-# Deploy del Worker de WhatsApp relay
-wrangler deploy workers/whatsapp-relay/index.js \
-  --name=colmado-whatsapp-relay
-
-# Deploy del Worker de Telegram relay
-wrangler deploy workers/telegram-relay/index.js \
-  --name=colmado-telegram-relay
-
-# Ver Workers desplegados
-wrangler deployments list
+wrangler deploy workers/whatsapp-relay/index.js --name=colmado-whatsapp-relay
+wrangler pages deploy build/web/ --project-name=colmado-saas-admin
 ```
 
-### Deploy del Panel Web Admin (Cloudflare Pages)
+### Logs
 
 ```bash
-# Primero exporta desde FlutterFlow y compila:
-flutter build web --release
-# → Output: build/web/
-
-# Luego despliega en Cloudflare Pages
-wrangler pages deploy build/web/ \
-  --project-name=colmado-saas-admin
-
-# Ver el estado del proyecto Pages
-wrangler pages project list
-```
-
-### Logs y monitoreo
-
-```bash
-# Ver logs en tiempo real del Worker en producción
 wrangler tail colmado-whatsapp-relay
+```
 
-# Ver logs del Worker de Telegram
-wrangler tail colmado-telegram-relay
+---
+
+## 🤖 LLM: Groq + Llama 3.3 70B
+
+> Modelo: `llama-3.3-70b-versatile` | Tier gratuito: 30 req/min, 500K tokens/día
+
+```bash
+# 1. Crear cuenta en https://console.groq.com
+# 2. API Keys → Create API Key (empieza con gsk_)
+npx convex env set GROQ_API_KEY "gsk_xxxxxxxxxxxxxxxxxx"
+```
+
+---
+
+## 📱 Meta Embedded Signup — Onboarding de colmados
+
+> Cada colmado conecta su propio número WhatsApp a COLMARIA con un clic.
+> Sin crear cuentas de Meta for Developers. Sin configuración técnica.
+> Ver guía completa: **docs/embedded-signup.md**
+
+### Setup inicial (solo una vez, tú como COLMARIA):
+
+```bash
+# 1. Ir a developers.facebook.com → Crear app tipo "Negocios"
+# 2. Agregar producto WhatsApp
+# 3. Activar Embedded Signup en WhatsApp → Configuración
+# 4. Configurar webhook:
+#    URL: https://tu-proyecto.convex.site/whatsapp
+#    Verify token: (mismo que WHATSAPP_VERIFY_TOKEN)
+# 5. Configurar variables:
+npx convex env set META_APP_ID "123456789"
+npx convex env set META_APP_SECRET "secret"
+npx convex env set CONVEX_SITE_URL "https://xxx.convex.site"
+npx convex env set WHATSAPP_VERIFY_TOKEN "colmaria_verify"
+```
+
+### Onboarding de cada colmado (lo hace el dueño del colmado):
+
+```
+1. Entra al Web Admin de COLMARIA
+2. Configuración → WhatsApp → "Conectar WhatsApp"
+3. Autoriza con su cuenta de Facebook Business
+4. ✅ Listo — su número queda conectado automáticamente
 ```
 
 ---
@@ -188,10 +184,10 @@ wrangler tail colmado-telegram-relay
 |----------|-----|
 | Dashboard Convex | https://dashboard.convex.dev |
 | Dashboard Cloudflare | https://dash.cloudflare.com |
-| Groq Console (API Keys) | https://console.groq.com |
+| Groq Console | https://console.groq.com |
+| Meta for Developers | https://developers.facebook.com/apps |
 | Groq API Endpoint | https://api.groq.com/openai/v1/chat/completions |
-| Meta WhatsApp Cloud API | https://graph.facebook.com/v20.0 |
-| Telegram Bot API | https://api.telegram.org/bot{TOKEN} |
+| Meta Graph API | https://graph.facebook.com/v20.0 |
 | Cloudflare Pages Admin | https://colmado-saas-admin.pages.dev |
 
 ---
@@ -202,40 +198,22 @@ wrangler tail colmado-telegram-relay
 
 | Variable | Descripción | Dónde obtenerla |
 |----------|-------------|-----------------|
-| `GROQ_API_KEY` | API key de Groq (Llama 3.3 70B) | console.groq.com → API Keys |
-| `WHATSAPP_TOKEN` | Token permanente de Meta | Meta for Developers |
-| `WHATSAPP_PHONE_ID` | ID del número de WhatsApp | Meta for Developers |
-| `WHATSAPP_VERIFY_TOKEN` | Token de verificación webhook Meta | Lo defines tú (string aleatorio) |
-| `TELEGRAM_BOT_TOKEN` | Token del bot de Telegram | @BotFather en Telegram |
+| `GROQ_API_KEY` | API key de Groq (Llama 3.3 70B) | console.groq.com |
+| `META_APP_ID` | ID de tu Meta App COLMARIA | developers.facebook.com |
+| `META_APP_SECRET` | Secret de tu Meta App | developers.facebook.com → Config básica |
+| `WHATSAPP_VERIFY_TOKEN` | Token de verificación webhook Meta | Lo defines tú |
+| `CONVEX_SITE_URL` | URL base de Convex site | Convex Dashboard |
+| `TELEGRAM_BOT_TOKEN` | Token del bot de Telegram | @BotFather |
+
+> ⚠️ Ya NO se necesita `WHATSAPP_TOKEN` global ni `WHATSAPP_PHONE_ID` global.
+> Cada colmado tiene su propio token y phone_id guardados en la tabla `colmados`.
 
 ### Cloudflare Worker (secrets)
 
 | Variable | Descripción |
 |----------|--------------|
 | `CONVEX_URL` | URL de tu proyecto Convex (`https://xxx.convex.cloud`) |
-| `VERIFY_TOKEN` | Mismo valor que `WHATSAPP_VERIFY_TOKEN` en Convex |
-| `WHATSAPP_TOKEN` | Token de Meta (mismo que en Convex) |
-
----
-
-## 🤖 LLM: Groq + Llama 3.3 70B
-
-> El proyecto usa **Groq** como proveedor LLM por su velocidad (tokens/seg más rápidos del mercado).
-> Modelo: `llama-3.3-70b-versatile`
-
-```bash
-# 1. Ir a https://console.groq.com
-# 2. Crear cuenta gratuita
-# 3. API Keys → Create API Key
-# 4. Copiar la key (empieza con gsk_)
-# 5. Configurar en Convex:
-npx convex env set GROQ_API_KEY "gsk_xxxxxxxxxxxxxxxxxx"
-```
-
-**Tier gratuito de Groq:**
-- 30 req/min en llama-3.3-70b-versatile
-- 500K tokens/día
-- Suficiente para desarrollo y testing
+| `VERIFY_TOKEN` | Mismo valor que `WHATSAPP_VERIFY_TOKEN` |
 
 ---
 
@@ -249,20 +227,20 @@ cd colmado-saas
 # 2. Instalar dependencias
 npm install
 
-# 3. Configurar variables de entorno de Convex
+# 3. Configurar variables
 npx convex env set GROQ_API_KEY "gsk_xxx"
-npx convex env set WHATSAPP_TOKEN "EAAxxx"
-npx convex env set WHATSAPP_PHONE_ID "123456"
+npx convex env set META_APP_ID "123456789"
+npx convex env set META_APP_SECRET "abc123"
 npx convex env set WHATSAPP_VERIFY_TOKEN "mi_token_secreto"
-npx convex env set TELEGRAM_BOT_TOKEN "123:AAAxxx"
+npx convex env set CONVEX_SITE_URL "https://xxx.convex.site"
 
-# 4. Iniciar Convex en modo dev
+# 4. Iniciar Convex dev
 npx convex dev
 
-# 5. En otra terminal: iniciar el Worker de WhatsApp
+# 5. En otra terminal: Worker
 cd workers/
-wrangler secret put CONVEX_URL   # pega tu URL de Convex
-wrangler secret put VERIFY_TOKEN # mismo que WHATSAPP_VERIFY_TOKEN
+wrangler secret put CONVEX_URL
+wrangler secret put VERIFY_TOKEN
 wrangler dev whatsapp-relay/index.js --remote
 ```
 
@@ -271,18 +249,10 @@ wrangler dev whatsapp-relay/index.js --remote
 ## ✅ Checklist antes de cada commit
 
 ```bash
-# 1. Verificar tipos TypeScript (0 errores)
-npx tsc --noEmit
-
-# 2. Verificar que Convex compila sin errores
-npx convex dev  # observa la consola, no debe haber errores en rojo
-
-# 3. Marcar el ítem en el checklist correspondiente
-# → checklists/fase[N].md
-
-# 4. Commit con mensaje descriptivo
+npx tsc --noEmit       # 0 errores TypeScript
+npx convex dev         # 0 errores en consola
 git add .
-git commit -m "feat/fix: [descripción breve de lo implementado]"
+git commit -m "feat/fix: descripción"
 git push origin master
 ```
 
@@ -292,31 +262,19 @@ git push origin master
 
 ### Error: `GROQ_API_KEY no configurada`
 ```bash
-# Verifica que la variable esté seteada
 npx convex env list
-# Si no aparece, configura:
 npx convex env set GROQ_API_KEY "gsk_xxx"
 ```
 
-### Error: `Groq API error: 429`
+### Error: `Groq API error: 429` (rate limit)
 ```bash
-# Rate limit alcanzado (30 req/min en tier gratuito)
-# Soluciones:
-# 1. Esperar 1 minuto
-# 2. Reducir la frecuencia de mensajes en testing
-# 3. Upgradar a tier pago en console.groq.com
+# Tier gratuito: 30 req/min. Esperar 1 minuto o upgradar en console.groq.com
 ```
 
-### Error: `Cannot find module 'convex/...'`
+### Error: `META_APP_ID o META_APP_SECRET no configurados`
 ```bash
-npm install convex@latest
-npx convex ai-files install
-```
-
-### Error: `Wrangler: No config file found`
-```bash
-# Especifica el archivo JS directamente:
-wrangler deploy workers/whatsapp-relay/index.js --name=colmado-whatsapp-relay
+npx convex env set META_APP_ID "123456789"
+npx convex env set META_APP_SECRET "tu_secret"
 ```
 
 ### Error: `Meta webhook verification failed`
@@ -325,4 +283,10 @@ wrangler deploy workers/whatsapp-relay/index.js --name=colmado-whatsapp-relay
 # 1. Convex:              npx convex env set WHATSAPP_VERIFY_TOKEN "xxx"
 # 2. Cloudflare Worker:  wrangler secret put VERIFY_TOKEN → "xxx"
 # 3. Meta for Developers: campo "Verify token" del webhook
+```
+
+### Error: `Cannot find module 'convex/...'`
+```bash
+npm install convex@latest
+npx convex ai-files install
 ```
