@@ -6,6 +6,11 @@ class AuthService {
   static const _tokenKey = 'colmaria_jwt';
   static const _refreshKey = 'colmaria_refresh';
   static const _deployUrl = 'https://different-hare-762.convex.cloud';
+  final http.Client? _client;
+
+  AuthService({http.Client? client}) : _client = client;
+
+  http.Client get _http => _client ?? http.Client();
 
   Future<void> saveTokens(String jwt, String refreshToken) async {
     final prefs = await SharedPreferences.getInstance();
@@ -34,7 +39,7 @@ class AuthService {
   }
 
   Future<Map<String, String>> signIn(String email, String password) async {
-    final res = await http.post(
+    final res = await _http.post(
       Uri.parse('$_deployUrl/api/action'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -56,7 +61,7 @@ class AuthService {
   }
 
   Future<Map<String, String>> signUp(String email, String password, String name) async {
-    final res = await http.post(
+    final res = await _http.post(
       Uri.parse('$_deployUrl/api/action'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
